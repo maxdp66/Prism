@@ -23,33 +23,8 @@ struct NewTabView: View {
 
     var body: some View {
         ZStack {
-            // Gradient background
-            LinearGradient(
-                stops: [
-                    .init(color: Color(red: 88/255,  green: 28/255,  blue: 135/255), location: 0.0),
-                    .init(color: Color(red: 109/255, green: 40/255,  blue: 217/255), location: 0.25),
-                    .init(color: Color(red: 37/255,  green: 99/255,  blue: 235/255), location: 0.6),
-                    .init(color: Color(red: 6/255,   green: 182/255, blue: 212/255), location: 1.0),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            // Subtle animated overlay orbs
-            GeometryReader { geo in
-                Circle()
-                    .fill(Color.white.opacity(0.04))
-                    .frame(width: geo.size.width * 0.6)
-                    .offset(x: -geo.size.width * 0.15, y: -geo.size.height * 0.1)
-                    .blur(radius: 60)
-
-                Circle()
-                    .fill(Color.cyan.opacity(0.08))
-                    .frame(width: geo.size.width * 0.45)
-                    .offset(x: geo.size.width * 0.55, y: geo.size.height * 0.5)
-                    .blur(radius: 80)
-            }
+            PrismBackground()
+                .ignoresSafeArea()
 
             VStack(spacing: 40) {
                 Spacer()
@@ -186,5 +161,123 @@ struct QuickLinkTile: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - PrismBackground
+
+struct PrismBackground: View {
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+
+            ZStack {
+                // Deep dark base — nearly black with a cool blue-black tint
+                Color(red: 0.04, green: 0.04, blue: 0.07)
+
+                // ── White incoming beam ──────────────────────────────────────
+                // A soft triangular wedge narrowing to the focal point at top-center.
+                // Simulates collimated light entering the prism from above.
+                Canvas { ctx, size in
+                    let focal = CGPoint(x: size.width * 0.5, y: 0)
+                    var beam = Path()
+                    beam.move(to: focal)
+                    beam.addLine(to: CGPoint(x: 0, y: -size.height * 0.4))
+                    beam.addLine(to: CGPoint(x: size.width, y: -size.height * 0.4))
+                    beam.closeSubpath()
+                    ctx.fill(beam, with: .color(Color.white.opacity(0.06)))
+                }
+                .blur(radius: 28)
+
+                // ── Spectrum fan ─────────────────────────────────────────────
+                // Six triangular rays emanate from the same focal point downward.
+                // Each ray fans out to cover a portion of the bottom edge,
+                // with the hues ordered R → O → Y → G → B → V.
+                Canvas { ctx, size in
+                    let focal = CGPoint(x: size.width * 0.5, y: 0)
+                    let bottom = size.height * 1.08
+                    let fanLeft  = size.width * -0.08
+                    let fanRight = size.width *  1.08
+                    let fanWidth = fanRight - fanLeft
+
+                    // (red, green, blue, opacity) — hand-tuned for clean look
+                    let bands: [(Double, Double, Double, Double)] = [
+                        (0.95, 0.20, 0.20, 0.28), // red
+                        (0.98, 0.55, 0.08, 0.22), // orange
+                        (0.97, 0.93, 0.12, 0.20), // yellow
+                        (0.15, 0.82, 0.38, 0.22), // green
+                        (0.18, 0.52, 0.98, 0.28), // blue
+                        (0.62, 0.10, 0.96, 0.24), // violet
+                    ]
+
+                    let count = Double(bands.count)
+                    let slice = fanWidth / count
+
+                    for (i, (r, g, b, a)) in bands.enumerated() {
+                        let xL = fanLeft + slice * Double(i) - slice * 0.25
+                        let xR = fanLeft + slice * Double(i + 1) + slice * 0.25
+                        var ray = Path()
+                        ray.move(to: focal)
+                        ray.addLine(to: CGPoint(x: xL, y: bottom))
+                        ray.addLine(to: CGPoint(x: xR, y: bottom))
+                        ray.closeSubpath()
+                        ctx.fill(ray, with: .color(Color(red: r, green: g, blue: b).opacity(a)))
+                    }
+                }
+                .blur(radius: 72)
+
+                // ── Secondary inner glow ─────────────────────────────────────
+                // A slightly tighter, sharper pass to add definition to the bands.
+                Canvas { ctx, size in
+                    let focal = CGPoint(x: size.width * 0.5, y: 0)
+                    let bottom = size.height * 1.08
+                    let fanLeft  = size.width * 0.04
+                    let fanRight = size.width * 0.96
+                    let fanWidth = fanRight - fanLeft
+
+                    let bands: [(Double, Double, Double)] = [
+                        (0.96, 0.22, 0.22),
+                        (0.98, 0.58, 0.10),
+                        (0.97, 0.94, 0.14),
+                        (0.16, 0.84, 0.40),
+                        (0.20, 0.54, 0.98),
+                        (0.64, 0.12, 0.97),
+                    ]
+
+                    let count  = Double(bands.count)
+                    let slice  = fanWidth / count
+
+                    for (i, (r, g, b)) in bands.enumerated() {
+                        let xL = fanLeft + slice * Double(i)
+                        let xR = fanLeft + slice * Double(i + 1)
+                        var ray = Path()
+                        ray.move(to: focal)
+                        ray.addLine(to: CGPoint(x: xL, y: bottom))
+                        ray.addLine(to: CGPoint(x: xR, y: bottom))
+                        ray.closeSubpath()
+                        ctx.fill(ray, with: .color(Color(red: r, green: g, blue: b).opacity(0.10)))
+                    }
+                }
+                .blur(radius: 28)
+
+                // ── Focal bloom ───────────────────────────────────────────────
+                // Bright halo where the "prism" splits the beam.
+                RadialGradient(
+                    colors: [Color.white.opacity(0.18), Color.white.opacity(0.04), .clear],
+                    center: UnitPoint(x: 0.5, y: 0.0),
+                    startRadius: 0,
+                    endRadius: w * 0.28
+                )
+
+                // ── Vignette ──────────────────────────────────────────────────
+                // Darkens the extreme edges so content reads cleanly.
+                RadialGradient(
+                    colors: [.clear, Color.black.opacity(0.55)],
+                    center: .center,
+                    startRadius: w * 0.3,
+                    endRadius: w * 0.85
+                )
+            }
+        }
     }
 }
