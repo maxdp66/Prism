@@ -30,22 +30,7 @@ struct NewTabView: View {
                 Spacer()
 
                 // Logo / Wordmark
-                VStack(spacing: 8) {
-                    Text("Prism")
-                        .font(.system(size: 52, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, Color(white: 0.9)],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
-                        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
-
-                    Text("Private · Fast · Native")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .tracking(1.5)
-                }
+                PrismTitleView()
 
                 // Search bar
                 HStack(spacing: 10) {
@@ -161,6 +146,84 @@ struct QuickLinkTile: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - PrismTitleView
+
+struct PrismTitleView: View {
+
+    // Spectrum gradient that echoes the background rays
+    private static let spectrumGradient = LinearGradient(
+        colors: [
+            Color(red: 0.96, green: 0.25, blue: 0.25), // red
+            Color(red: 0.98, green: 0.60, blue: 0.10), // orange
+            Color(red: 0.97, green: 0.93, blue: 0.16), // yellow
+            Color(red: 0.18, green: 0.83, blue: 0.40), // green
+            Color(red: 0.22, green: 0.54, blue: 0.98), // blue
+            Color(red: 0.62, green: 0.12, blue: 0.96), // violet
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    var body: some View {
+        VStack(spacing: 14) {
+            // "Prism" rendered with spectrum colours and a soft spectral bloom
+            Text("Prism")
+                .font(.system(size: 72, weight: .bold, design: .rounded))
+                .tracking(-1)
+                .foregroundStyle(Self.spectrumGradient)
+                // Outer glow — mimics light bleeding through coloured glass
+                .shadow(color: Color(red: 0.62, green: 0.12, blue: 0.96).opacity(0.55), radius: 32, x:  12, y: 6)
+                .shadow(color: Color(red: 0.22, green: 0.54, blue: 0.98).opacity(0.55), radius: 32, x: -12, y: 6)
+                .shadow(color: Color.white.opacity(0.15), radius: 8, x: 0, y: 0)
+
+            Text("Private · Fast · Native")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.45))
+                .tracking(3.5)
+        }
+        .padding(.horizontal, 52)
+        .padding(.vertical, 26)
+        .modifier(LiquidGlassModifier())
+    }
+}
+
+// MARK: - LiquidGlassModifier
+
+/// Applies the native Liquid Glass material on macOS 26+.
+/// Falls back to a hand-crafted glass look (ultraThinMaterial + specular border) on older systems.
+struct LiquidGlassModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+        } else {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .shadow(color: .black.opacity(0.35), radius: 40, y: 20)
+                )
+                .overlay(
+                    // Specular highlight — bright top/left edge, fades to transparent
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.55),
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.0),
+                                    Color.white.opacity(0.08),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        }
     }
 }
 
