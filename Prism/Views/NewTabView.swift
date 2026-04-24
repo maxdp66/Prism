@@ -161,20 +161,21 @@ struct PrismTitleView: View {
                 .font(.system(size: 72, weight: .bold, design: .rounded))
                 .tracking(-1)
                 .foregroundStyle(
+                    // Opacity baked into the stops so the glow shadows
+                    // are unaffected — the fill is ~65 % opaque, letting
+                    // the prism rays behind bleed through the letter shapes.
                     LinearGradient(
                         stops: [
-                            .init(color: Color(red: 1.0, green: 0.91, blue: 0.93), location: 0.0),
-                            .init(color: .white,                                    location: 0.38),
-                            .init(color: Color(red: 0.91, green: 0.96, blue: 1.0), location: 0.72),
-                            .init(color: Color(red: 0.94, green: 0.90, blue: 1.0), location: 1.0),
+                            .init(color: Color(red: 1.0, green: 0.91, blue: 0.93).opacity(0.65), location: 0.0),
+                            .init(color: Color.white.opacity(0.65),                               location: 0.38),
+                            .init(color: Color(red: 0.91, green: 0.96, blue: 1.0).opacity(0.65), location: 0.72),
+                            .init(color: Color(red: 0.94, green: 0.90, blue: 1.0).opacity(0.65), location: 1.0),
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                // Inner crisp glow — makes letters feel luminous, like lit glass
                 .shadow(color: .white.opacity(0.55), radius: 12)
-                // Outer diffuse bloom — softly illuminates the dark background
                 .shadow(color: .white.opacity(0.18), radius: 48)
 
             Text("Private · Fast · Native")
