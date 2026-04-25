@@ -77,11 +77,12 @@ Prism combines multiple filter lists to create a robust protection layer:
 
 ### ⚙️ Flexible Settings
 
-- Enable or disable individual filter lists
-- Custom block list URLs
-- Sync frequency configuration
-- Clear browsing data with one click
-- Dark mode integration
+- **Search Engine** — Choose from DuckDuckGo (default), Google, Bing, Brave, Ecosia, or self-hosted SearXNG
+- **Autocomplete** — Suggestions from DuckDuckGo, Google, or Brave Search with optional API key
+- **Filter Lists** — Enable/disable individual lists and add custom block list URLs
+- **Privacy Controls** — Toggle content blocker, JavaScript, and autoplay per-page
+- **Appearance** — Dark mode, light mode, or system preference
+- **Clear Data** — Wipe browsing data with one click
 
 ### 🎯 Privacy Shield
 
@@ -101,7 +102,7 @@ Visual indicators show active protection status at a glance, so you always know 
 
 ### System Requirements
 
-- **macOS** 11.0 (Big Sur) or later
+- **macOS** 14.0 (Sonoma) or later
 - **Xcode** 14.0+ (for development only)
 
 ### Option A: Download Binary (Recommended)
@@ -144,14 +145,14 @@ When you first open Prism:
 
 | Action | Shortcut |
 |--------|----------|
-| **Type a URL** | Click address bar or start typing |
-| **Search the web** | Type in address bar + `⇧⏎` |
 | **Open new tab** | `⌘T` |
 | **Close tab** | `⌘W` |
-| **Switch tabs** | `⌘←` / `⌘→` |
-| **Toggle sidebar** | `⌘B` |
-| **Settings** | `⌘,` |
+| **Reopen closed tab** | `⇧⌘T` |
+| **Toggle bookmarks sidebar** | `⌘B` |
+| **Search the web** | Type in address bar + `⏎` |
+| **Find in page** | `⌘F` |
 | **Reload page** | `⌘R` |
+| **Settings** | `⌘,` |
 
 ---
 
@@ -160,18 +161,23 @@ When you first open Prism:
 Master Prism with these keyboard shortcuts:
 
 ```
-Navigation
+Tab Management
   ⌘T             New tab
   ⌘W             Close tab
   ⇧⌘T            Reopen closed tab
-  ⌘R             Reload page
-  ⌘L             Focus address bar
   
-Browsing
-  ⌘B             Toggle sidebar
-  ⌘⇧B            Show bookmarks
-  ⌘←   →         Switch between tabs
-  ⌘↑   ↓         Switch between windows
+Navigation & Browsing
+  ⌘B             Toggle bookmarks sidebar
+  ⌘R             Reload page
+  ⌘F             Find in page
+  
+Zoom & Display
+  ⌘=             Zoom in
+  ⌘-             Zoom out
+  ⌘0             Reset zoom to actual size
+  
+Page Actions
+  ⌘P             Print page
   
 Application
   ⌘,             Open Settings
@@ -182,51 +188,82 @@ Application
 
 ---
 
-## 🔧 Content Blocking
+## ⚙️ Content Blocking & Privacy
 
-### How It Works
+### How Content Blocking Works
 
 1. **Download** filter lists from configured URLs
-2. **Parse** rules in AdBlock syntax
+2. **Parse** rules in AdBlock Plus syntax
 3. **Compile** into Safari-compatible `WKContentRuleList` format
 4. **Inject** into WebView for all pages
 5. **Refresh** automatically every 24 hours
+
+### Privacy Controls
+
+Beyond content blocking, Prism offers fine-grained privacy control:
+
+- **Content Blocker** — Toggle rule-based blocking (default: enabled)
+- **JavaScript** — Disable JavaScript globally or per-site (default: enabled)
+- **Autoplay** — Prevent videos and audio from playing automatically (default: disabled)
+- **Tracking** — EasyPrivacy list blocks analytics and telemetry by default
 
 ### Managing Filter Lists
 
 #### Enable/Disable Built-in Lists
 
 Go to **Settings → Filter Lists** to toggle:
-- EasyList
-- EasyPrivacy
-- Fanboy's Annoyances
-- And more optional lists
+- EasyList (ads)
+- EasyPrivacy (tracking)
+- Fanboy's Annoyances (UI clutter)
+- Cookie notices, social widgets, and more
 
 #### Add Custom Block Lists
 
-1. Open **Settings → Filter Lists → Add List**
-2. Enter a name and filter list URL
-3. Click **Add**
-4. Prism downloads and compiles automatically
+1. Open **Settings → Filter Lists → Add Custom List**
+2. Enter a name and filter list URL (must be in AdBlock format)
+3. Prism downloads and compiles automatically
+4. Toggle on/off anytime in settings
 
 #### Manual Sync
 
-Need an immediate update? Click **Sync Now** in Settings → Filter Lists
+Need an immediate update? Click **Sync Now** in Settings → Filter Lists. Updates check automatically every 24 hours.
 
-#### Filter List Details
+#### Built-in Filter Lists
 
-| Name | Type | Purpose | Enabled |
-|------|------|---------|---------|
-| EasyList | Ads | Primary ad blocker | ✅ |
-| EasyPrivacy | Trackers | Tracking prevention | ✅ |
-| Fanboy's Annoyances | UI | Pop-ups & clutter | ✅ |
-| Cookie Notice List | Privacy | Cookie notices | ⚪ |
-| Fanboy's Social | Social | Social widgets | ⚪ |
-| I Don't Care About Cookies | Privacy | Auto-accept cookies | ⚪ |
+| Name | Type | Purpose | Default |
+|------|------|---------|----------|
+| EasyList | Ads | Primary ad blocker | ✅ Enabled |
+| EasyPrivacy | Trackers | Tracking prevention | ✅ Enabled |
+| Fanboy's Annoyances | UI | Pop-ups & clutter | ✅ Enabled |
+| EasyList Cookie List | Privacy | Cookie notices | ⚪ Disabled |
+| Fanboy's Social | Social | Social media widgets | ⚪ Disabled |
+| I Don't Care About Cookies | Privacy | Auto-accept cookies | ⚪ Disabled |
+
+### Search Engine & Autocomplete Configuration
+
+#### Supported Search Engines
+
+1. **DuckDuckGo** (default) — Privacy-focused, no tracking
+2. **Google** — Full-featured search
+3. **Bing** — Microsoft's search engine
+4. **Brave** — Brave Search with optional API key
+5. **Ecosia** — Eco-friendly search engine
+6. **SearXNG** — Self-hosted private meta-search (custom instance URL required)
+
+**To change:** Settings → General → Search Engine
+
+#### Autocomplete Providers
+
+1. **None** (default) — No autocomplete
+2. **DuckDuckGo** — Fast, privacy-respecting suggestions
+3. **Google** — Full suggestion history
+4. **Brave** — Requires free API key from [api.search.brave.com](https://api.search.brave.com)
+
+**To change:** Settings → Autocomplete → Provider
 
 ### Creating Custom Filter Lists
 
-See [adblock-generator/README.md](adblock-generator/) to create your own filter lists.
+See [adblock-generator/README.md](adblock-generator/) to create your own filter lists in AdBlock Plus format.
 
 ---
 

@@ -14,7 +14,7 @@ struct TabPillView: View {
         browserState.activeTabId == tab.id
     }
 
-var body: some View {
+    var body: some View {
         ZStack {
             HStack(spacing: 0) {
                 ZStack {
@@ -68,6 +68,8 @@ var body: some View {
         .onTapGesture { browserState.activateTab(tab) }
         .onHover { isHovered = $0 }
         .help(tab.displayURL.isEmpty ? "New Tab" : tab.displayURL)
+        .frame(minWidth: 100, maxWidth: 200)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder

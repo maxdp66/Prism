@@ -16,19 +16,19 @@ struct ContentView: View {
 
     private var addressBarSection: some View {
         ZStack {
-            // Base material background
             VisualEffectView(material: .titlebar, blendingMode: .behindWindow)
 
-            // Theme color overlay
             if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
-                activeTab.themeColor.opacity(0.6)
+                activeTab.themeColor
+                    .opacity(0.2)
+                    .blendMode(.multiply)
             } else {
-                Color.gray.opacity(0.05)
+                Color.primary.opacity(0.03)
+                    .blendMode(.multiply)
             }
 
-            // Address bar content with traffic light spacing
             HStack(spacing: 12) {
-                Spacer().frame(width: 80) // Gap for floating traffic lights
+                Spacer().frame(width: 80)
 
                 AddressBarSection(
                     barFrame: $barFrame,
@@ -41,7 +41,7 @@ struct ContentView: View {
                 .environmentObject(settings)
                 .coordinateSpace(name: "browserWindow")
 
-                Spacer().frame(width: 80) // Balance
+                Spacer().frame(width: 80)
             }
             .padding(.vertical, 8)
         }
@@ -50,18 +50,18 @@ struct ContentView: View {
 
     private var tabBarSection: some View {
         ZStack {
-            // Base material background
             VisualEffectView(material: .contentBackground, blendingMode: .behindWindow)
                 .opacity(0.8)
 
-            // Theme color overlay for website matching
             if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
-                activeTab.themeColor.opacity(0.7).brightness(-0.05)
+                activeTab.themeColor
+                    .opacity(0.15)
+                    .blendMode(.multiply)
             } else {
-                Color.gray.opacity(0.03)
+                Color.primary.opacity(0.02)
+                    .blendMode(.multiply)
             }
 
-            // Tab bar content
             TabBarSection()
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
@@ -69,7 +69,7 @@ struct ContentView: View {
         .frame(height: 36)
     }
 
-private var webContentSection: some View {
+    private var webContentSection: some View {
         ZStack {
             HSplitView {
                 if browserState.sidebarVisible {
@@ -105,7 +105,6 @@ private var webContentSection: some View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
-            // Settings-changed reload banner
             if browserState.settingsChangedNeedsReload {
                 VStack {
                     SettingsReloadBanner {
@@ -118,7 +117,6 @@ private var webContentSection: some View {
                 }
             }
 
-            // Find in page bar
             if let tab = browserState.activeTab, tab.isFindBarVisible {
                 VStack {
                     Spacer()
@@ -128,7 +126,7 @@ private var webContentSection: some View {
             }
         }
     }
-    
+
     private var suggestionsOverlay: some View {
         Group {
             if !suggestions.isEmpty {
@@ -155,17 +153,16 @@ private var webContentSection: some View {
             }
         }
     }
+
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
                 addressBarSection
-                Divider().opacity(0.1) // Faint line between sections
                 tabBarSection
                 webContentSection
             }
             suggestionsOverlay
         }
-        .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 900, minHeight: 600)
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.settingsChangedNeedsReload)
@@ -212,68 +209,68 @@ struct AddressBarSection: View {
     @EnvironmentObject var bookmarkStore: BookmarkStore
 
     var body: some View {
-            HStack(spacing: 12) {
-                Spacer().frame(width: 80)
+        HStack(spacing: 12) {
+            Spacer().frame(width: 80)
 
-                HStack(spacing: 6) {
-                    ToolbarButton(
-                        symbolName: "chevron.left",
-                        tooltip: "Go Back (⌘[)",
-                        enabled: browserState.activeTab?.canGoBack ?? false
-                    ) {
-                        browserState.activeTab?.goBack()
-                    }
+            HStack(spacing: 6) {
+                ToolbarButton(
+                    symbolName: "chevron.left",
+                    tooltip: "Go Back (⌘[)",
+                    enabled: browserState.activeTab?.canGoBack ?? false
+                ) {
+                    browserState.activeTab?.goBack()
+                }
 
-                    ToolbarButton(
-                        symbolName: "chevron.right",
-                        tooltip: "Go Forward (⌘])",
-                        enabled: browserState.activeTab?.canGoForward ?? false
-                    ) {
-                        browserState.activeTab?.goForward()
-                    }
+                ToolbarButton(
+                    symbolName: "chevron.right",
+                    tooltip: "Go Forward (⌘])",
+                    enabled: browserState.activeTab?.canGoForward ?? false
+                ) {
+                    browserState.activeTab?.goForward()
+                }
 
-                    ToolbarButton(
-                        symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
-                        tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
-                        enabled: true
-                    ) {
-                        if browserState.activeTab?.isLoading == true {
-                            browserState.activeTab?.stopLoad()
-                        } else {
-                            browserState.activeTab?.reload()
-                        }
+                ToolbarButton(
+                    symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
+                    tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
+                    enabled: true
+                ) {
+                    if browserState.activeTab?.isLoading == true {
+                        browserState.activeTab?.stopLoad()
+                    } else {
+                        browserState.activeTab?.reload()
                     }
                 }
-                .frame(minWidth: 100, alignment: .leading)
-
-                Spacer()
-
-                AddressBarView(
-                    barFrame: $barFrame,
-                    suggestions: $suggestions,
-                    suggestionsHeight: $suggestionsHeight,
-                    selectedSuggestionIndex: $selectedSuggestionIndex
-                )
-                .environmentObject(browserState)
-                .environmentObject(bookmarkStore)
-                .frame(width: 400)
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    ToolbarButton(
-                        symbolName: "sidebar.left",
-                        tooltip: "Toggle Bookmarks (⌘B)",
-                        enabled: true
-                    ) {
-                        browserState.toggleSidebar()
-                    }
-                }
-                .frame(minWidth: 100, alignment: .trailing)
-
-                Spacer().frame(width: 10)
             }
-            .frame(height: 22)
+            .frame(minWidth: 100, alignment: .leading)
+
+            Spacer()
+
+            AddressBarView(
+                barFrame: $barFrame,
+                suggestions: $suggestions,
+                suggestionsHeight: $suggestionsHeight,
+                selectedSuggestionIndex: $selectedSuggestionIndex
+            )
+            .environmentObject(browserState)
+            .environmentObject(bookmarkStore)
+            .frame(width: 400)
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                ToolbarButton(
+                    symbolName: "sidebar.left",
+                    tooltip: "Toggle Bookmarks (⌘B)",
+                    enabled: true
+                ) {
+                    browserState.toggleSidebar()
+                }
+            }
+            .frame(minWidth: 100, alignment: .trailing)
+
+            Spacer().frame(width: 10)
+        }
+        .frame(height: 22)
     }
 }
 
@@ -294,26 +291,31 @@ struct TabBarSection: View {
         }
         .frame(height: 0)
 
-        HStack(spacing: 1) { // Safari uses 1px separator
-            ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
-                let showSeparator = index > 0 && !browserState.tabs.isEmpty
-                let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
+        HStack(spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 1) {
+                    ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
+                        let showSeparator = index > 0 && !browserState.tabs.isEmpty
+                        let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
 
-                if showSeparator {
-                    TabSeparatorView(
-                        leftTab: leftTab,
-                        rightTab: tab,
-                        browserState: browserState
-                    )
+                        if showSeparator {
+                            TabSeparatorView(
+                                leftTab: leftTab,
+                                rightTab: tab,
+                                browserState: browserState
+                            )
+                        }
+
+                        TabPillView(tab: tab)
+                            .environmentObject(browserState)
+                            .frame(minWidth: 100, maxWidth: 200)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .id(tab.id)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
+                    }
                 }
-
-                TabPillView(tab: tab)
-                    .environmentObject(browserState)
-                    .frame(minWidth: 100, maxWidth: 240) // Size-aware constraint
-                    .fixedSize(horizontal: false, vertical: true)
-                    .id(tab.id)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
             }
+            .padding(.vertical, 4)
 
             Button {
                 browserState.addNewTab(url: nil)
@@ -330,33 +332,14 @@ struct TabBarSection: View {
             .buttonStyle(.plain)
             .help("New Tab (⌘T)")
 
-            // Keep tabs pinned to the left until the bar is full
-            if browserState.tabs.count < 8 { // maxTabsBeforeSpreading
+            if browserState.tabs.count < 8 {
                 Spacer()
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
         .frame(height: 34)
-        .scrollContentBackground(.hidden)
         .onChange(of: browserState.activeTabId) { _, _ in
             withAnimation { }
-        }
-
-        if let tab = browserState.activeTab, tab.isLoading {
-            GeometryReader { geo in
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(red: 139/255, green: 92/255, blue: 246/255), Color.blue],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: geo.size.width * tab.estimatedProgress, height: 2)
-                    .animation(.easeInOut(duration: 0.2), value: tab.estimatedProgress)
-            }
-            .frame(height: 2)
         }
     }
 }
@@ -580,5 +563,3 @@ struct SettingsReloadBanner: View {
         }
     }
 }
-
-

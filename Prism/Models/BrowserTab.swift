@@ -10,7 +10,7 @@ private let faviconCache = NSCache<NSString, NSImage>()
 // MARK: - BrowserTab
 
 @MainActor
-final class BrowserTab: NSObject, ObservableObject, Identifiable, WKScriptMessageHandler {
+final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     // MARK: Public state (observed by SwiftUI)
 
@@ -47,9 +47,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKScriptMessag
 
     private let settings: BrowserSettings
 
-    // MARK: KVO tokens
+    // MARK: Combine cancellables
 
-    private var kvoTokens: [NSKeyValueObservation] = []
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
 
@@ -61,95 +61,85 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKScriptMessag
         let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
         webView.customUserAgent = safariUA
 
-        let source = "(function() { document.body.style.paddingTop = '60px'; })();"
-        let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        webView.configuration.userContentController.addUserScript(script)
-
-        // Theme color extraction script
-        let themeColorScript = """
-        const getThemeColor = () => {
-            const meta = document.querySelector('meta[name="theme-color"]');
-            return meta ? meta.getAttribute('content') : null;
-        };
-
-        // Send initial color
-        window.webkit.messageHandlers.themeColorHandler.postMessage(getThemeColor());
-
-        // Observe changes
-        const observer = new MutationObserver(() => {
-            window.webkit.messageHandlers.themeColorHandler.postMessage(getThemeColor());
-        });
-        observer.observe(document.head, { childList: true, subtree: true, attributes: true });
-        """
-        let themeScript = WKUserScript(source: themeColorScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        webView.configuration.userContentController.addUserScript(themeScript)
-        webView.configuration.userContentController.add(self, name: "themeColorHandler")
-
         self.webView.navigationDelegate = self
         self.webView.uiDelegate = self
-        setupKVO()
+        setupObservers()
     }
 
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "themeColorHandler", let colorString = message.body as? String {
-            DispatchQueue.main.async {
-                self.themeColor = Color(hex: colorString) ?? .clear
-            }
-        }
-    }
+    // MARK: - Deinit
 
     deinit {
-        kvoTokens.forEach { $0.invalidate() }
+        cancellables.removeAll()
     }
 
-    // MARK: - KVO Setup
+    // MARK: - Observers
 
-    private func setupKVO() {
-        let options: NSKeyValueObservingOptions = [.new]
-
-        kvoTokens.append(webView.observe(\.url, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async { [weak self] in
+    private func setupObservers() {
+        // URL publisher
+        webView.publisher(for: \.url)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] url in
                 guard let self else { return }
-                let url = wv.url
                 self.displayURL = url?.absoluteString ?? ""
                 self.isSecure = url?.scheme?.lowercased() == "https"
             }
-        })
+            .store(in: &cancellables)
 
-        kvoTokens.append(webView.observe(\.title, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async { [weak self] in
+        // Title publisher
+        webView.publisher(for: \.title)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] title in
                 guard let self else { return }
-                let t = wv.title ?? ""
+                let t = title ?? ""
                 self.title = t.isEmpty ? "New Tab" : t
             }
-        })
+            .store(in: &cancellables)
 
-        kvoTokens.append(webView.observe(\.isLoading, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async { self?.isLoading = wv.isLoading }
-        })
+        // isLoading publisher
+        webView.publisher(for: \.isLoading)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] loading in
+                self?.isLoading = loading
+            }
+            .store(in: &cancellables)
 
-        kvoTokens.append(webView.observe(\.estimatedProgress, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async { self?.estimatedProgress = wv.estimatedProgress }
-        })
+        // estimatedProgress publisher
+        webView.publisher(for: \.estimatedProgress)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] progress in
+                self?.estimatedProgress = progress
+            }
+            .store(in: &cancellables)
 
-        kvoTokens.append(webView.observe(\.canGoBack, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async { self?.canGoBack = wv.canGoBack }
-        })
+        // canGoBack publisher
+        webView.publisher(for: \.canGoBack)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] canGoBack in
+                self?.canGoBack = canGoBack
+            }
+            .store(in: &cancellables)
 
-        kvoTokens.append(webView.observe(\.canGoForward, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async { self?.canGoForward = wv.canGoForward }
-        })
+        // canGoForward publisher
+        webView.publisher(for: \.canGoForward)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] canGoForward in
+                self?.canGoForward = canGoForward
+            }
+            .store(in: &cancellables)
 
-        // Theme color fallback using underPageBackgroundColor
-        if #available(macOS 12.0, *) {
-            kvoTokens.append(webView.observe(\.underPageBackgroundColor, options: options) { [weak self] wv, _ in
-                DispatchQueue.main.async { [weak self] in
+        // underPageBackgroundColor publisher (native color extraction, macOS 14+)
+        if #available(macOS 14.0, *) {
+            webView.publisher(for: \.underPageBackgroundColor)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] bgColor in
                     guard let self else { return }
-                    if self.themeColor == .clear, let bgColor = wv.underPageBackgroundColor {
-                        self.themeColor = Color(nsColor: bgColor)
+                    if let color = bgColor {
+                        self.themeColor = Color(nsColor: color)
+                    } else {
+                        self.themeColor = .clear
                     }
                 }
-            })
+                .store(in: &cancellables)
         }
     }
 

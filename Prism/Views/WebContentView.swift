@@ -68,14 +68,28 @@ struct WebContentContainer: NSViewRepresentable {
         container.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 0),
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
 
+        let headerHeight: CGFloat = 88
+        if let scrollView = webView.enclosingScrollView {
+            scrollView.contentInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+            scrollView.verticalScrollElasticity = .none
+        }
+        webView.additionalSafeAreaInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+
         return container
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        let headerHeight: CGFloat = 88
+        if let scrollView = webView.enclosingScrollView {
+            scrollView.contentInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+            scrollView.verticalScrollElasticity = .none
+        }
+        webView.additionalSafeAreaInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+    }
 }
