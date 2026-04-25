@@ -34,7 +34,7 @@ Prism is a meticulously crafted web browser for macOS that prioritizes **privacy
 
 <div align="center">
 
-<img src="https://via.placeholder.com/800x400/1a1a2e/f8f8f2?text=Prism+Browser+Screenshot" alt="Prism Browser" width="600"/>
+<img src="Screenshot 2026-04-25 at 16.46.07.png" alt="Prism Browser" width="600"/>
 
 *Clean interface. Powerful protection. Absolute control.*
 
