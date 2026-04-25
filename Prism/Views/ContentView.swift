@@ -206,7 +206,7 @@ struct UnifiedToolbar: View {
                             )
                         }
 
-                        let pillWidth = max(120.0, min(200.0, toolbarWidth / CGFloat(max(1, browserState.tabs.count))))
+                        let pillWidth = max(120.0, min(220.0, toolbarWidth / CGFloat(max(1, browserState.tabs.count))))
                         
                         TabPillView(tab: tab)
                             .environmentObject(browserState)

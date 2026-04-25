@@ -24,8 +24,12 @@ struct WebContentView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        if nsView.additionalSafeAreaInsets.top != 72 {
-            nsView.additionalSafeAreaInsets = NSEdgeInsets(top: 76, left: 0, bottom: 0, right: 0)
+        let newInsets = NSEdgeInsets(top: 72, left: 0, bottom: 0, right: 0)
+        if nsView.additionalSafeAreaInsets.top != newInsets.top ||
+           nsView.additionalSafeAreaInsets.left != newInsets.left ||
+           nsView.additionalSafeAreaInsets.bottom != newInsets.bottom ||
+           nsView.additionalSafeAreaInsets.right != newInsets.right {
+            nsView.additionalSafeAreaInsets = newInsets
         }
     }
 }
