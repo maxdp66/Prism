@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="Screenshot 2026-04-25 at 16.46.07.png" alt="Prism Browser" width="500" style="border-radius: 12px; margin-bottom: 20px"/>
+<img src="demo.png" alt="Prism Browser" width="500" style="border-radius: 12px; margin-bottom: 20px"/>
 
 ### *Privacy emerges gradually. Clarity is the catalyst.*
 
@@ -109,7 +109,7 @@ Visual indicators show active protection status at a glance, so you always know 
 
 ### Option A: Download Binary (Recommended)
 
-1. Visit the [Releases page](https://github.com/yourusername/prism/releases)
+1. Visit the [Releases page](https://github.com/maxdp66/prism/releases)
 2. Download `Prism.dmg`
 3. Drag **Prism** to your **Applications** folder
 4. Launch from Applications or Spotlight
@@ -118,7 +118,7 @@ Visual indicators show active protection status at a glance, so you always know 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/prism.git
+git clone https://github.com/maxdp66/prism.git
 cd Prism
 
 # Open in Xcode
