@@ -10,6 +10,8 @@ struct PrismApp: App {
     @StateObject private var bookmarkStore = BookmarkStore.shared
     @StateObject private var settings = BrowserSettings.shared
 
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -47,5 +49,13 @@ struct PrismApp: App {
             SettingsView()
                 .environmentObject(settings)
         }
+    }
+}
+
+// MARK: - AppDelegate
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Nothing needed yet
     }
 }

@@ -105,21 +105,14 @@ final class BrowserState: ObservableObject {
 
     /// Subscribe to settings changes and rebuild shared configuration on the fly.
     private func observeSettings() {
-        settings.$javascriptEnabled
+        // @AppStorage-backed properties on ObservableObject automatically send objectWillChange
+        // when their values change. Subscribe to the root publisher and trigger a rebuild.
+        settings.objectWillChange
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                Task { @MainActor in self?.rebuildConfiguration() }
+                self?.rebuildConfiguration()
             }
             .store(in: &cancellables)
-
-        settings.contentBlockerEnabled
-            .sink { [weak self] _ in
-                Task { @MainActor in self?.rebuildConfiguration() }
-            }
-            .store(in: &cancellables)
-
-        // Autoplay doesn't require config rebuild — new tabs read it from settings
-        // when they call decidePolicyFor navigationAction (handled per-tab).
-        // JavaScript changes require a new config to affect future tabs.
     }
 
     // MARK: - Tab Management
