@@ -69,31 +69,32 @@ struct AddressBarView: View {
                             break
                         }
                     }
-                    .onChange(of: isFocused) { _, newValue in
+                    .onChange(of: isFocused) {
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            isEditing = newValue
+                            isEditing = isFocused
                         }
-                        if newValue {
+                        if isFocused {
                             editingText = activeTab?.displayURL ?? ""
                         } else {
                             suggestions = []
                         }
                     }
-                    .onChange(of: editingText) { _, newValue in
+                    .onChange(of: editingText) {
                         selectedSuggestionIndex = nil
                         autocompleteTask?.cancel()
 
                         guard isFocused,
                               settings.autocompleteProvider != .none,
-                              newValue.count >= 2 else {
+                              editingText.count >= 2 else {
                             suggestions = []
                             return
                         }
 
+                        let text = editingText
                         autocompleteTask = Task {
                             try? await Task.sleep(for: .milliseconds(200))
                             guard !Task.isCancelled else { return }
-                            await fetchAutocomplete(for: newValue)
+                            await fetchAutocomplete(for: text)
                         }
                     }
             }
@@ -126,8 +127,8 @@ struct AddressBarView: View {
                     .onAppear {
                         barFrame = geo.frame(in: .named("browserWindow"))
                     }
-                    .onChange(of: geo.frame(in: .named("browserWindow"))) { _, newFrame in
-                        barFrame = newFrame
+                    .onChange(of: geo.frame(in: .named("browserWindow"))) {
+                        barFrame = geo.frame(in: .named("browserWindow"))
                     }
             }
         )
@@ -358,8 +359,8 @@ struct SuggestionsOverlay: View {
                     .onAppear {
                         suggestionsHeight = geo.size.height
                     }
-                    .onChange(of: geo.size.height) { _, newHeight in
-                        suggestionsHeight = newHeight
+                    .onChange(of: geo.size.height) {
+                        suggestionsHeight = geo.size.height
                     }
             }
         )

@@ -5,6 +5,7 @@ import SwiftUI
 
 // MARK: - Favicon Cache (module-level)
 
+@MainActor
 private let faviconCache = NSCache<NSString, NSImage>()
 
 // MARK: - BrowserTab
@@ -49,7 +50,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     // MARK: Combine cancellables
 
-    private var cancellables = Set<AnyCancellable>()
+    private nonisolated(unsafe) var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
 
@@ -127,20 +128,17 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
             }
             .store(in: &cancellables)
 
-        // underPageBackgroundColor publisher (native color extraction, macOS 14+)
-        if #available(macOS 14.0, *) {
-            webView.publisher(for: \.underPageBackgroundColor)
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] bgColor in
-                    guard let self else { return }
-                    if let color = bgColor {
-                        self.themeColor = Color(nsColor: color)
-                    } else {
-                        self.themeColor = .clear
-                    }
+        webView.publisher(for: \.underPageBackgroundColor)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] bgColor in
+                guard let self else { return }
+                if let color = bgColor {
+                    self.themeColor = Color(nsColor: color)
+                } else {
+                    self.themeColor = .clear
                 }
-                .store(in: &cancellables)
-        }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Navigation
@@ -292,7 +290,7 @@ extension BrowserTab: WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        decisionHandler: @MainActor @escaping (WKNavigationActionPolicy) -> Void
     ) {
         // Autoplay gate: if autoplay is disabled, require user gesture for audio/video playback
         if !settings.autoplayEnabled {
@@ -311,7 +309,7 @@ extension BrowserTab: WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationResponse: WKNavigationResponse,
-        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+        decisionHandler: @MainActor @escaping (WKNavigationResponsePolicy) -> Void
     ) {
         decisionHandler(.allow)
     }
@@ -373,12 +371,13 @@ extension Color {
 
 // MARK: - FaviconLoader (module-level singleton)
 
+@MainActor
 private final class FaviconLoader {
     static let shared = FaviconLoader()
 
     private let session: URLSession
-    private var inFlight: [URL: [(NSImage?) -> Void]] = [:]
-    private let lock = NSLock()
+    private let inFlightQueue = DispatchQueue(label: "com.prism.favicon.inFlight")
+    private nonisolated(unsafe) var inFlight: [URL: [(NSImage?) -> Void]] = [:]
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -387,38 +386,40 @@ private final class FaviconLoader {
     }
 
     func load(url: URL, cacheKey: String, completion: @escaping (NSImage?) -> Void) {
-        if let cached = faviconCache.object(forKey: cacheKey as NSString) {
-            completion(cached)
-            return
-        }
-
-        lock.lock()
-        if inFlight[url] != nil {
-            // Another request already in flight — piggyback on it
-            inFlight[url]!.append(completion)
-            lock.unlock()
-            return
-        }
-        inFlight[url] = [completion]
-        lock.unlock()
-
-        let task = session.dataTask(with: url) { [weak self] data, _, error in
-            guard let self else { return }
-            let image: NSImage?
-            if let data = data, let img = NSImage(data: data), error == nil {
-                faviconCache.setObject(img, forKey: cacheKey as NSString)
-                image = img
-            } else {
-                image = nil
+        Task { @MainActor in
+            let cached = faviconCache.object(forKey: cacheKey as NSString)
+            if let cached {
+                completion(cached)
+                return
             }
-            self.lock.lock()
-            let callbacks = self.inFlight.removeValue(forKey: url) ?? []
-            self.lock.unlock()
-            DispatchQueue.main.async {
-                callbacks.forEach { $0(image) }
+
+            inFlightQueue.sync {
+                if inFlight[url] != nil {
+                    inFlight[url]!.append(completion)
+                    return
+                }
+                inFlight[url] = [completion]
             }
+
+            let task = session.dataTask(with: url) { [weak self] data, _, error in
+                let image: NSImage?
+                if let data = data, let img = NSImage(data: data), error == nil {
+                    Task { @MainActor in
+                        faviconCache.setObject(img, forKey: cacheKey as NSString)
+                    }
+                    image = img
+                } else {
+                    image = nil
+                }
+                self?.inFlightQueue.sync {
+                    let callbacks = self?.inFlight.removeValue(forKey: url) ?? []
+                    DispatchQueue.main.async {
+                        callbacks.forEach { $0(image) }
+                    }
+                }
+            }
+            task.resume()
         }
-        task.resume()
     }
 }
 
@@ -449,7 +450,7 @@ extension BrowserTab: WKUIDelegate {
         _ webView: WKWebView,
         runJavaScriptAlertPanelWithMessage message: String,
         initiatedByFrame frame: WKFrameInfo,
-        completionHandler: @escaping () -> Void
+        completionHandler: @MainActor @escaping @Sendable () -> Void
     ) {
         let alert = NSAlert()
         alert.messageText = message
@@ -462,7 +463,7 @@ extension BrowserTab: WKUIDelegate {
         _ webView: WKWebView,
         runJavaScriptConfirmPanelWithMessage message: String,
         initiatedByFrame frame: WKFrameInfo,
-        completionHandler: @escaping (Bool) -> Void
+        completionHandler: @MainActor @escaping @Sendable (Bool) -> Void
     ) {
         let alert = NSAlert()
         alert.messageText = message
