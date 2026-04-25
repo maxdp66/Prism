@@ -85,7 +85,7 @@ var body: some View {
             Image(nsImage: favicon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .cornerRadius(2)
+                .clipShape(RoundedRectangle(cornerRadius: 2))
         } else {
             Image(systemName: "globe")
                 .font(.system(size: 10))

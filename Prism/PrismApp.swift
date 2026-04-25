@@ -29,6 +29,7 @@ struct PrismApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
+            // MARK: Tab management
             CommandGroup(replacing: .newItem) {
                 Button("New Tab") {
                     browserState.addNewTab(url: nil)
@@ -43,13 +44,63 @@ struct PrismApp: App {
                     }
                 }
                 .keyboardShortcut("w", modifiers: .command)
+
+                Button("Reopen Last Closed Tab") {
+                    browserState.restoreLastClosedTab()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+                .disabled(!browserState.canRestoreClosedTab)
             }
 
+            // MARK: Sidebar
             CommandGroup(replacing: .sidebar) {
                 Button("Toggle Bookmarks Sidebar") {
                     browserState.toggleSidebar()
                 }
                 .keyboardShortcut("b", modifiers: .command)
+            }
+
+            // MARK: Page actions
+            CommandMenu("Page") {
+                Button("Find in Page...") {
+                    browserState.activeTab?.isFindBarVisible = true
+                }
+                .keyboardShortcut("f", modifiers: .command)
+
+                Divider()
+
+                Button("Zoom In") {
+                    browserState.activeTab?.zoomIn()
+                }
+                .keyboardShortcut("=", modifiers: .command)
+
+                Button("Zoom Out") {
+                    browserState.activeTab?.zoomOut()
+                }
+                .keyboardShortcut("-", modifiers: .command)
+
+                Button("Actual Size") {
+                    browserState.activeTab?.resetZoom()
+                }
+                .keyboardShortcut("0", modifiers: .command)
+
+                Divider()
+
+                Button("Print...") {
+                    browserState.activeTab?.printPage()
+                }
+                .keyboardShortcut("p", modifiers: .command)
+
+                Divider()
+
+                Button("Reload Page") {
+                    browserState.activeTab?.reload()
+                }
+                .keyboardShortcut("r", modifiers: .command)
+
+                Button("Reload All Tabs") {
+                    browserState.reloadAllTabs()
+                }
             }
         }
 

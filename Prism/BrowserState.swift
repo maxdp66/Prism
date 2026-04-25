@@ -14,6 +14,8 @@ final class BrowserState: ObservableObject {
     @Published var activeTabId: UUID?
     @Published var sidebarVisible: Bool = true
     @Published var isContentBlockerReady: Bool = false
+    @Published var contentBlockerError: String? = nil
+    @Published var settingsChangedNeedsReload: Bool = false
 
     private let sidebarVisibleKey = "com.prism.sidebarVisible"
 
@@ -37,17 +39,26 @@ final class BrowserState: ObservableObject {
 
     private let settings = BrowserSettings.shared
 
+    // Tracks the last values used when building the WKWebViewConfiguration so
+    // we only rebuild when something WebKit actually cares about changes.
+    private var lastConfigJS: Bool = true
+    private var lastConfigAutoplay: Bool = false
+    private var lastConfigBlocker: Bool = true
+
     // MARK: Init
 
     init() {
         sidebarVisible = UserDefaults.standard.object(forKey: sidebarVisibleKey) as? Bool ?? true
 
+        lastConfigJS = settings.javascriptEnabled
+        lastConfigAutoplay = settings.autoplayEnabled
+        lastConfigBlocker = settings.contentBlockerEnabled
+
         setupConfiguration()
         listenForNewTabNotifications()
         observeSettings()
-
-        // Always start with at least one blank tab
-        addNewTab(url: nil)
+        // First tab is opened inside setupConfiguration() after the content blocker is ready,
+        // so we do NOT call addNewTab here directly.
     }
 
     // MARK: - Configuration
@@ -59,14 +70,13 @@ final class BrowserState: ObservableObject {
 
         config.applicationNameForUserAgent = "Prism/1.0"
 
-        // Preferences – controlled by settings
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = settings.javascriptEnabled
         config.defaultWebpagePreferences = prefs
 
         self.sharedConfiguration = config
 
-        // Load content blocker async — only if enabled
+        // Load content blocker async, then open the first tab so it benefits from blocking.
         if settings.contentBlockerEnabled {
             Task {
                 do {
@@ -75,20 +85,31 @@ final class BrowserState: ObservableObject {
                     isContentBlockerReady = true
                 } catch {
                     print("[Prism] ContentBlocker failed: \(error)")
-                    isContentBlockerReady = true   // continue anyway
+                    contentBlockerError = "Content blocker failed to load."
+                    isContentBlockerReady = true
                 }
+                if tabs.isEmpty { addNewTab(url: nil) }
             }
         } else {
-            isContentBlockerReady = true  // not needed, but "ready"
+            isContentBlockerReady = true
+            if tabs.isEmpty { addNewTab(url: nil) }
         }
     }
 
-    /// Rebuild WKWebViewConfiguration when settings change.
-    ///
-    /// - Important: This only affects *new* tabs. Existing WKWebViews cannot
-    ///   have their configuration changed after creation. To apply settings to
-    ///   the current tab the user must reload the page or open a new tab.
+    /// Rebuild WKWebViewConfiguration only when a WebKit-relevant setting changes.
+    /// Existing WKWebViews cannot have their configuration changed after creation —
+    /// the user is prompted to reload open tabs to apply changes.
     private func rebuildConfiguration() {
+        let jsChanged = settings.javascriptEnabled != lastConfigJS
+        let autoplayChanged = settings.autoplayEnabled != lastConfigAutoplay
+        let blockerChanged = settings.contentBlockerEnabled != lastConfigBlocker
+
+        guard jsChanged || autoplayChanged || blockerChanged else { return }
+
+        lastConfigJS = settings.javascriptEnabled
+        lastConfigAutoplay = settings.autoplayEnabled
+        lastConfigBlocker = settings.contentBlockerEnabled
+
         let config = WKWebViewConfiguration()
         config.allowsAirPlayForMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = settings.autoplayEnabled ? [] : [.all]
@@ -97,9 +118,7 @@ final class BrowserState: ObservableObject {
         prefs.allowsContentJavaScript = settings.javascriptEnabled
         config.defaultWebpagePreferences = prefs
 
-        // Content blocker only if enabled
         if settings.contentBlockerEnabled {
-            // Fire-and-forget: rules are async; if they fail we still continue
             Task {
                 do {
                     let ruleList = try await ContentBlocker.shared.loadRuleList()
@@ -107,18 +126,18 @@ final class BrowserState: ObservableObject {
                 } catch {
                     print("[Prism] ContentBlocker reload failed: \(error)")
                 }
+                sharedConfiguration = config
+                if !tabs.isEmpty { settingsChangedNeedsReload = true }
             }
+        } else {
+            sharedConfiguration = config
+            if !tabs.isEmpty { settingsChangedNeedsReload = true }
         }
-
-        sharedConfiguration = config
     }
 
     /// Subscribe to settings changes and rebuild shared configuration on the fly.
     private func observeSettings() {
-        // @AppStorage-backed properties on ObservableObject automatically send objectWillChange
-        // when their values change. Subscribe to the root publisher and trigger a rebuild.
         settings.objectWillChange
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.rebuildConfiguration()
             }
@@ -137,26 +156,43 @@ final class BrowserState: ObservableObject {
         }
     }
 
+    private var closedTabURLs: [URL] = []
+
     func closeTab(_ tab: BrowserTab) {
         guard tabs.count > 1 else {
-            // Last tab — just navigate home
             activeTab?.navigate(to: "")
             return
         }
 
-        let index = tabs.firstIndex(where: { $0.id == tab.id }) ?? 0
+        // Save URL for restore (max 10)
+        if let url = tab.webView.url {
+            closedTabURLs.append(url)
+            if closedTabURLs.count > 10 { closedTabURLs.removeFirst() }
+        }
 
+        let index = tabs.firstIndex(where: { $0.id == tab.id }) ?? 0
         tabs.removeAll { $0.id == tab.id }
 
-        // Activate the nearest remaining tab
         if tab.id == activeTabId {
             let newIndex = max(0, min(index, tabs.count - 1))
             activateTab(tabs[newIndex])
         }
     }
 
+    func restoreLastClosedTab() {
+        guard let url = closedTabURLs.popLast() else { return }
+        addNewTab(url: url)
+    }
+
+    var canRestoreClosedTab: Bool { !closedTabURLs.isEmpty }
+
     func activateTab(_ tab: BrowserTab) {
         activeTabId = tab.id
+    }
+
+    func reloadAllTabs() {
+        tabs.forEach { $0.reload() }
+        settingsChangedNeedsReload = false
     }
 
     // MARK: - target=_blank handler

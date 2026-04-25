@@ -31,6 +31,16 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     let webView: WKWebView
 
+    // MARK: Find in page
+
+    @Published var isFindBarVisible: Bool = false
+    @Published var findQuery: String = ""
+    @Published var findMatchCount: Int = 0
+
+    // MARK: Zoom
+
+    @Published var magnification: CGFloat = 1.0
+
     // MARK: Settings
 
     private let settings: BrowserSettings
@@ -68,7 +78,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         let options: NSKeyValueObservingOptions = [.new]
 
         kvoTokens.append(webView.observe(\.url, options: options) { [weak self] wv, _ in
-            Task { @MainActor in
+            DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let url = wv.url
                 self.displayURL = url?.absoluteString ?? ""
@@ -77,7 +87,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         })
 
         kvoTokens.append(webView.observe(\.title, options: options) { [weak self] wv, _ in
-            Task { @MainActor in
+            DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let t = wv.title ?? ""
                 self.title = t.isEmpty ? "New Tab" : t
@@ -85,27 +95,19 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         })
 
         kvoTokens.append(webView.observe(\.isLoading, options: options) { [weak self] wv, _ in
-            Task { @MainActor in
-                self?.isLoading = wv.isLoading
-            }
+            DispatchQueue.main.async { self?.isLoading = wv.isLoading }
         })
 
         kvoTokens.append(webView.observe(\.estimatedProgress, options: options) { [weak self] wv, _ in
-            Task { @MainActor in
-                self?.estimatedProgress = wv.estimatedProgress
-            }
+            DispatchQueue.main.async { self?.estimatedProgress = wv.estimatedProgress }
         })
 
         kvoTokens.append(webView.observe(\.canGoBack, options: options) { [weak self] wv, _ in
-            Task { @MainActor in
-                self?.canGoBack = wv.canGoBack
-            }
+            DispatchQueue.main.async { self?.canGoBack = wv.canGoBack }
         })
 
         kvoTokens.append(webView.observe(\.canGoForward, options: options) { [weak self] wv, _ in
-            Task { @MainActor in
-                self?.canGoForward = wv.canGoForward
-            }
+            DispatchQueue.main.async { self?.canGoForward = wv.canGoForward }
         })
     }
 
@@ -137,11 +139,24 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
             }
         }
 
-        // Looks like a domain: contains a dot, no spaces, and last segment is >= 2 chars
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // localhost (with optional port and path)
+        if trimmed == "localhost" || trimmed.hasPrefix("localhost:") || trimmed.hasPrefix("localhost/") {
+            return URL(string: "http://\(trimmed)")
+        }
+
+        // IPv4 address (e.g. 192.168.1.1, 10.0.0.1:8080)
+        let ipPattern = #"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?(/.*)?$"#
+        if trimmed.range(of: ipPattern, options: .regularExpression) != nil {
+            return URL(string: "http://\(trimmed)")
+        }
+
+        // Looks like a domain: contains a dot, no spaces, and last segment is >= 2 chars
         if !trimmed.contains(" ") && trimmed.contains(".") {
             let components = trimmed.split(separator: ".")
-            if let last = components.last, last.count >= 2 {
+            if let last = components.last, last.count >= 2,
+               !last.allSatisfy({ $0.isNumber }) {
                 let candidate = trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
                     ? trimmed
                     : "https://\(trimmed)"
@@ -161,7 +176,63 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     func stopLoad()  { webView.stopLoading() }
 
     func incrementBlockedCount() {
-        DispatchQueue.main.async { self.blockedItemsCount += 1 }
+        blockedItemsCount += 1
+    }
+
+    // MARK: - Zoom
+
+    func zoomIn() {
+        let next = min(magnification + 0.1, 3.0)
+        webView.setMagnification(next, centeredAt: .zero)
+        magnification = next
+    }
+
+    func zoomOut() {
+        let next = max(magnification - 0.1, 0.5)
+        webView.setMagnification(next, centeredAt: .zero)
+        magnification = next
+    }
+
+    func resetZoom() {
+        webView.setMagnification(1.0, centeredAt: .zero)
+        magnification = 1.0
+    }
+
+    // MARK: - Print
+
+    func printPage() {
+        let info = NSPrintInfo.shared
+        let op = webView.printOperation(with: info)
+        if let window = webView.window {
+            op.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+        } else {
+            op.run()
+        }
+    }
+
+    // MARK: - Find in Page
+
+    func findInPage(_ query: String, forward: Bool = true) {
+        findQuery = query
+        guard !query.isEmpty else {
+            webView.evaluateJavaScript("window.getSelection().removeAllRanges()") { _, _ in }
+            findMatchCount = 0
+            return
+        }
+        let config = WKFindConfiguration()
+        config.backwards = !forward
+        config.wraps = true
+        config.caseSensitive = false
+        webView.find(query, configuration: config) { [weak self] result in
+            self?.findMatchCount = result.matchFound ? 1 : 0
+        }
+    }
+
+    func dismissFindBar() {
+        isFindBarVisible = false
+        findQuery = ""
+        findMatchCount = 0
+        webView.evaluateJavaScript("window.getSelection().removeAllRanges()") { _, _ in }
     }
 }
 
@@ -176,6 +247,11 @@ extension BrowserTab: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         loadFavicon()
+        // Record in history (ignore blank/new-tab pages)
+        let urlStr = webView.url?.absoluteString ?? ""
+        if !urlStr.isEmpty && urlStr != "about:blank" {
+            HistoryStore.shared.add(title: webView.title ?? "", url: urlStr)
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -222,17 +298,57 @@ extension BrowserTab: WKNavigationDelegate {
 
         let faviconURL = URL(string: "https://\(host)/favicon.ico")!
 
+        FaviconLoader.shared.load(url: faviconURL, cacheKey: cacheKeyString) { [weak self] image in
+            self?.favicon = image
+        }
+    }
+}
+
+// MARK: - FaviconLoader (module-level singleton)
+
+private final class FaviconLoader {
+    static let shared = FaviconLoader()
+
+    private let session: URLSession
+    private var inFlight: [URL: [(NSImage?) -> Void]] = [:]
+    private let lock = NSLock()
+
+    private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10.0
-        let session = URLSession(configuration: config)
-        let task = session.dataTask(with: faviconURL) { [weak self] data, response, error in
-            guard let self = self,
-                  let data = data,
-                  let image = NSImage(data: data),
-                  error == nil else { return }
-            faviconCache.setObject(image, forKey: cacheKeyString as NSString)
-            Task { @MainActor in
-                self.favicon = image
+        self.session = URLSession(configuration: config)
+    }
+
+    func load(url: URL, cacheKey: String, completion: @escaping (NSImage?) -> Void) {
+        if let cached = faviconCache.object(forKey: cacheKey as NSString) {
+            completion(cached)
+            return
+        }
+
+        lock.lock()
+        if inFlight[url] != nil {
+            // Another request already in flight — piggyback on it
+            inFlight[url]!.append(completion)
+            lock.unlock()
+            return
+        }
+        inFlight[url] = [completion]
+        lock.unlock()
+
+        let task = session.dataTask(with: url) { [weak self] data, _, error in
+            guard let self else { return }
+            let image: NSImage?
+            if let data = data, let img = NSImage(data: data), error == nil {
+                faviconCache.setObject(img, forKey: cacheKey as NSString)
+                image = img
+            } else {
+                image = nil
+            }
+            self.lock.lock()
+            let callbacks = self.inFlight.removeValue(forKey: url) ?? []
+            self.lock.unlock()
+            DispatchQueue.main.async {
+                callbacks.forEach { $0(image) }
             }
         }
         task.resume()
