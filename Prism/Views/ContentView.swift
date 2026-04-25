@@ -171,6 +171,7 @@ struct UnifiedToolbar: View {
                         }
                         .padding(.horizontal, 16)
                     }
+                    .frame(maxWidth: .infinity)
                     .scrollContentBackground(.hidden)
                     .onChange(of: browserState.activeTabId) { id in
                         if let id {
@@ -181,7 +182,7 @@ struct UnifiedToolbar: View {
 
                 Spacer(minLength: 4)
             }
-            .frame(height: 32)
+            .frame(height: 34)
             .background(Color.clear)
 
             HStack(spacing: 0) {
