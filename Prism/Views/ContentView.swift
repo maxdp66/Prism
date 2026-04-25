@@ -15,60 +15,53 @@ struct ContentView: View {
     @State private var selectedSuggestionIndex: Int? = nil
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                TabBarView()
-                    .environmentObject(browserState)
+        ZStack(alignment: .top) {
+            HSplitView {
+                if browserState.sidebarVisible {
+                    SidebarView()
+                        .environmentObject(browserState)
+                        .environmentObject(bookmarkStore)
+                        .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
+                        .transition(.move(edge: .leading))
+                }
 
-                BrowserToolbar(
-                    barFrame: $barFrame,
-                    suggestions: $suggestions,
-                    suggestionsHeight: $suggestionsHeight,
-                    selectedSuggestionIndex: $selectedSuggestionIndex
-                )
-                .environmentObject(browserState)
-                .environmentObject(bookmarkStore)
-                .environmentObject(settings)
-
-                Divider()
-                    .opacity(0.3)
-
-                HSplitView {
-                    if browserState.sidebarVisible {
-                        SidebarView()
+                if let tab = browserState.activeTab {
+                    if tab.displayURL.isEmpty && !tab.isLoading {
+                        NewTabView(clearSuggestions: { suggestions = [] })
                             .environmentObject(browserState)
-                            .environmentObject(bookmarkStore)
-                            .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
-                            .transition(.move(edge: .leading))
+                            .environmentObject(settings)
+                    } else {
+                        WebContentContainer(webView: tab.webView)
                     }
-
-                    ZStack {
-                        if let tab = browserState.activeTab {
-                            if tab.displayURL.isEmpty && !tab.isLoading {
-                                NewTabView(clearSuggestions: { suggestions = [] })
-                                    .environmentObject(browserState)
-                                    .environmentObject(settings)
-                            } else {
-                                WebContentView(webView: tab.webView)
-                            }
-                        } else {
-                            NewTabView(clearSuggestions: { suggestions = [] })
-                                .environmentObject(browserState)
-                                .environmentObject(settings)
-                        }
-
-                        if !suggestions.isEmpty {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture { suggestions = [] }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .zIndex(1)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    NewTabView(clearSuggestions: { suggestions = [] })
+                        .environmentObject(browserState)
+                        .environmentObject(settings)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.clear)
             .zIndex(0)
+
+            if !suggestions.isEmpty {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { suggestions = [] }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(1)
+            }
+
+            UnifiedToolbar(
+                barFrame: $barFrame,
+                suggestions: $suggestions,
+                suggestionsHeight: $suggestionsHeight,
+                selectedSuggestionIndex: $selectedSuggestionIndex
+            )
+            .environmentObject(browserState)
+            .environmentObject(bookmarkStore)
+            .environmentObject(settings)
+            .coordinateSpace(name: "browserWindow")
+            .zIndex(1)
 
             if !suggestions.isEmpty {
                 SuggestionsOverlay(
@@ -85,7 +78,7 @@ struct ContentView: View {
                     x: barFrame.midX,
                     y: barFrame.maxY + suggestionsHeight / 2 + 8
                 )
-                .zIndex(2)
+                .zIndex(100)
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                 .onExitCommand {
                     suggestions = []
@@ -93,12 +86,8 @@ struct ContentView: View {
                 }
             }
         }
-        .coordinateSpace(name: "browserWindow")
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .frame(minWidth: 900, minHeight: 600)
-        .background(Color(NSColor.windowBackgroundColor))
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in }
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .onChange(of: browserState.activeTabId) { _ in
             suggestions = []
             selectedSuggestionIndex = nil
@@ -106,9 +95,9 @@ struct ContentView: View {
     }
 }
 
-// MARK: - BrowserToolbar
+// MARK: - UnifiedToolbar
 
-struct BrowserToolbar: View {
+struct UnifiedToolbar: View {
 
     @Binding var barFrame: CGRect
     @Binding var suggestions: [Suggestion]
@@ -118,97 +107,182 @@ struct BrowserToolbar: View {
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
 
+    @State private var toolbarWidth: CGFloat = 0
+
+    private var tabWidth: CGFloat {
+        let padding: CGFloat = 16 + 8 + 76 + 10
+        let actionButtonsWidth: CGFloat = 100 + 100
+        let addressBarWidth: CGFloat = 600
+        let availableWidth = toolbarWidth - padding - actionButtonsWidth - addressBarWidth
+        let tabCount = max(1, CGFloat(browserState.tabs.count))
+        let dynamicWidth = availableWidth / tabCount
+        return max(100, min(220, dynamicWidth))
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            // Left toolbar buttons – fixed min-width keeps the address bar centred
-            HStack(spacing: 6) {
-                NavButton(
-                    symbolName: "chevron.left",
-                    tooltip: "Go Back (⌘[)",
-                    enabled: browserState.activeTab?.canGoBack ?? false
-                ) {
-                    browserState.activeTab?.goBack()
-                }
-
-                NavButton(
-                    symbolName: "chevron.right",
-                    tooltip: "Go Forward (⌘])",
-                    enabled: browserState.activeTab?.canGoForward ?? false
-                ) {
-                    browserState.activeTab?.goForward()
-                }
-
-                NavButton(
-                    symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
-                    tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
-                    enabled: true
-                ) {
-                    if browserState.activeTab?.isLoading == true {
-                        browserState.activeTab?.stopLoad()
-                    } else {
-                        browserState.activeTab?.reload()
-                    }
-                }
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                Color.clear
+                    .preference(key: WidthPreferenceKey.self, value: geo.size.width)
+                    .onPreferenceChange(WidthPreferenceKey.self) { toolbarWidth = $0 }
             }
-            .frame(minWidth: 100, alignment: .leading)
+            .frame(height: 0)
 
-            Spacer()
+            HStack(spacing: 0) {
+                Spacer().frame(width: 76)
 
-            // Centred address bar, Safari-style
-            AddressBarView(
-                barFrame: $barFrame,
-                suggestions: $suggestions,
-                suggestionsHeight: $suggestionsHeight,
-                selectedSuggestionIndex: $selectedSuggestionIndex
-            )
-            .environmentObject(browserState)
-            .environmentObject(bookmarkStore)
-            .frame(maxWidth: 600)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
+                                let showSeparator = index > 0 && !browserState.tabs.isEmpty
+                                let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
 
-            Spacer()
-
-            // Right toolbar buttons – mirror the left side so the bar stays centred
-            HStack(spacing: 6) {
-                NavButton(
-                    symbolName: "sidebar.left",
-                    tooltip: "Toggle Bookmarks (⌘B)",
-                    enabled: true
-                ) {
-                    browserState.toggleSidebar()
-                }
-            }
-            .frame(minWidth: 100, alignment: .trailing)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(
-            ZStack {
-                VStack {
-                    Spacer()
-                    if let tab = browserState.activeTab, tab.isLoading {
-                        GeometryReader { geo in
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.prismPurple, Color.blue],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                                if showSeparator {
+                                    TabSeparatorView(
+                                        leftTab: leftTab,
+                                        rightTab: tab,
+                                        browserState: browserState
                                     )
-                                )
-                                .frame(width: geo.size.width * tab.estimatedProgress, height: 2)
-                                .animation(.easeInOut(duration: 0.2), value: tab.estimatedProgress)
+                                }
+
+                                TabPillView(tab: tab)
+                                    .environmentObject(browserState)
+                                    .frame(width: tabWidth)
+                                    .id(tab.id)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
+                            }
+
+                            Button {
+                                browserState.addNewTab(url: nil)
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 24, height: 24)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .fill(Color.primary.opacity(0.05))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("New Tab (⌘T)")
+                            .padding(.leading, 2)
                         }
-                        .frame(height: 2)
+                        .padding(.horizontal, 16)
+                    }
+                    .scrollContentBackground(.hidden)
+                    .onChange(of: browserState.activeTabId) { id in
+                        if let id {
+                            withAnimation { proxy.scrollTo(id, anchor: .center) }
+                        }
                     }
                 }
+
+                Spacer(minLength: 4)
             }
-        )
+            .frame(height: 32)
+            .background(Color.clear)
+
+            HStack(spacing: 0) {
+                Spacer().frame(width: 76)
+
+                HStack(spacing: 6) {
+                    ToolbarButton(
+                        symbolName: "chevron.left",
+                        tooltip: "Go Back (⌘[)",
+                        enabled: browserState.activeTab?.canGoBack ?? false
+                    ) {
+                        browserState.activeTab?.goBack()
+                    }
+
+                    ToolbarButton(
+                        symbolName: "chevron.right",
+                        tooltip: "Go Forward (⌘])",
+                        enabled: browserState.activeTab?.canGoForward ?? false
+                    ) {
+                        browserState.activeTab?.goForward()
+                    }
+
+                    ToolbarButton(
+                        symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
+                        tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
+                        enabled: true
+                    ) {
+                        if browserState.activeTab?.isLoading == true {
+                            browserState.activeTab?.stopLoad()
+                        } else {
+                            browserState.activeTab?.reload()
+                        }
+                    }
+                }
+                .frame(minWidth: 100, alignment: .leading)
+
+                Spacer()
+
+                AddressBarView(
+                    barFrame: $barFrame,
+                    suggestions: $suggestions,
+                    suggestionsHeight: $suggestionsHeight,
+                    selectedSuggestionIndex: $selectedSuggestionIndex
+                )
+                .environmentObject(browserState)
+                .environmentObject(bookmarkStore)
+                .frame(maxWidth: 600)
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    ToolbarButton(
+                        symbolName: "sidebar.left",
+                        tooltip: "Toggle Bookmarks (⌘B)",
+                        enabled: true
+                    ) {
+                        browserState.toggleSidebar()
+                    }
+                }
+                .frame(minWidth: 100, alignment: .trailing)
+
+                Spacer().frame(width: 10)
+            }
+            .frame(height: 38)
+            .background(Color.clear)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.05))
+                    .frame(height: 0.5)
+            }
+
+            if let tab = browserState.activeTab, tab.isLoading {
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.prismPurple, Color.blue],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * tab.estimatedProgress, height: 2)
+                        .animation(.easeInOut(duration: 0.2), value: tab.estimatedProgress)
+                }
+                .frame(height: 2)
+            }
+        }
+        .background(.ultraThinMaterial)
     }
 }
 
-// MARK: - NavButton
+private struct WidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
-struct NavButton: View {
+// MARK: - ToolbarButton
+
+struct ToolbarButton: View {
     let symbolName: String
     let tooltip: String
     let enabled: Bool
@@ -224,6 +298,7 @@ struct NavButton: View {
             Image(systemName: symbolName)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(enabled ? .primary : .secondary)
+                .opacity(enabled ? 0.7 : 0.4)
                 .frame(width: 28, height: 28)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
@@ -266,6 +341,33 @@ struct ConditionalKeyboardShortcut: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+// MARK: - TabSeparatorView
+
+struct TabSeparatorView: View {
+    let leftTab: BrowserTab?
+    let rightTab: BrowserTab
+    @ObservedObject var browserState: BrowserState
+
+    @State private var isHovered = false
+
+    private var isActiveOrHovered: Bool {
+        let rightActive = browserState.activeTabId == rightTab.id
+        let leftActive = leftTab != nil && browserState.activeTabId == leftTab?.id
+
+        let rightHovered = isHovered
+
+        return rightActive || leftActive || rightHovered
+    }
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.1))
+            .frame(width: 1, height: 16)
+            .opacity(isActiveOrHovered ? 0 : 1)
+            .onHover { isHovered = $0 }
     }
 }
 

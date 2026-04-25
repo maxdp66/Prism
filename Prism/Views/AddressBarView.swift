@@ -107,19 +107,15 @@ struct AddressBarView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(
-                            isEditing
-                                ? Color.prismPurple.opacity(0.7)
-                                : (isHovered ? Color.secondary.opacity(0.3) : Color.secondary.opacity(0.15)),
-                            lineWidth: isEditing ? 1.5 : 1
-                        )
-                )
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
+
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+            }
         )
-        .frame(maxWidth: .infinity)
+        .frame(height: 28)
         .onHover { isHovered = $0 }
         .onTapGesture {
             isFocused = true
@@ -155,11 +151,11 @@ struct AddressBarView: View {
         Group {
             if hasURL {
                 Image(systemName: isSecure ? "lock.fill" : "globe")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(isSecure ? .green : .secondary)
             } else {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
             }
         }
@@ -214,7 +210,7 @@ struct AddressBarView: View {
         Button(action: { showPrivacyPopover = true }) {
             HStack(spacing: 3) {
                 Image(systemName: "shield.fill")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(count > 0 ? .prismPurple : .secondary)
                 if count > 0 {
                     Text("\(count)")
@@ -259,15 +255,21 @@ struct AddressBarView: View {
         Button {
             if isBookmarked {
                 if let bookmark = bookmarkStore.bookmarks.first(where: { $0.url == url }) {
-                    bookmarkStore.remove(bookmark)
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
+                        bookmarkStore.remove(bookmark)
+                    }
                 }
             } else if !url.isEmpty {
-                bookmarkStore.add(title: activeTab?.title ?? "", url: url)
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
+                    bookmarkStore.add(title: activeTab?.title ?? "", url: url)
+                }
             }
         } label: {
             Image(systemName: isBookmarked ? "star.fill" : "star")
-                .font(.system(size: 12))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(isBookmarked ? .yellow : .secondary)
+                .scaleEffect(isBookmarked ? 1.2 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isBookmarked)
         }
         .buttonStyle(.plain)
         .help(isBookmarked ? "Remove Bookmark" : "Add Bookmark")

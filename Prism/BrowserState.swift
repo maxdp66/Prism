@@ -57,6 +57,8 @@ final class BrowserState: ObservableObject {
         config.allowsAirPlayForMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = settings.autoplayEnabled ? [] : [.all]
 
+        config.applicationNameForUserAgent = "Prism/1.0"
+
         // Preferences – controlled by settings
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = settings.javascriptEnabled

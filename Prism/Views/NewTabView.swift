@@ -13,15 +13,15 @@ struct NewTabView: View {
     let clearSuggestions: () -> Void
 
     // Quick-access tiles
-    private let quickLinks: [(title: String, url: String, icon: String)] = [
-        ("GitHub",       "https://github.com",                   "chevron.left.forwardslash.chevron.right"),
-        ("YouTube",      "https://youtube.com",                  "play.rectangle.fill"),
-        ("Hacker News",  "https://news.ycombinator.com",         "newspaper.fill"),
-        ("Wikipedia",    "https://wikipedia.org",                "book.fill"),
-        ("DuckDuckGo",   "https://duckduckgo.com",               "magnifyingglass"),
-        ("Reddit",       "https://reddit.com",                   "bubble.left.and.bubble.right.fill"),
-        ("Twitter/X",    "https://x.com",                        "bird.fill"),
-        ("Anthropic",    "https://anthropic.com",                "sparkles"),
+    private let quickLinks: [(title: String, url: String)] = [
+        ("GitHub",       "https://github.com"),
+        ("YouTube",      "https://youtube.com"),
+        ("Hacker News",  "https://news.ycombinator.com"),
+        ("Wikipedia",    "https://wikipedia.org"),
+        ("DuckDuckGo",   "https://duckduckgo.com"),
+        ("Reddit",       "https://reddit.com"),
+        ("Twitter/X",    "https://x.com"),
+        ("Anthropic",    "https://anthropic.com"),
     ]
 
     private var searchPlaceholder: String {
@@ -81,7 +81,6 @@ struct NewTabView: View {
                         ForEach(quickLinks, id: \.url) { link in
                             QuickLinkTile(
                                 title: link.title,
-                                icon: link.icon,
                                 url: link.url
                             ) {
                                 clearSuggestions()
@@ -119,23 +118,41 @@ struct NewTabView: View {
 
 struct QuickLinkTile: View {
     let title: String
-    let icon: String
     let url: String
     let action: () -> Void
 
     @State private var isHovered = false
+    @State private var faviconImage: NSImage?
+
+    private var domain: String {
+        URL(string: url)?.host ?? url
+    }
+
+    private var faviconURL: URL? {
+        URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64")
+    }
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 22))
-                    .foregroundColor(.white)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.white.opacity(isHovered ? 0.22 : 0.14))
-                    )
+                Group {
+                    if let image = faviconImage {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } else {
+                        Image(systemName: "globe")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
+                    }
+                }
+                .font(.system(size: 22))
+                .foregroundColor(.white)
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(isHovered ? 0.22 : 0.14))
+                )
 
                 Text(title)
                     .font(.system(size: 11, weight: .medium))
@@ -157,6 +174,25 @@ struct QuickLinkTile: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .onAppear {
+            loadFavicon()
+        }
+    }
+
+    private func loadFavicon() {
+        guard let url = faviconURL else { return }
+        Task {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let image = NSImage(data: data) {
+                    await MainActor.run {
+                        faviconImage = image
+                    }
+                }
+            } catch {
+                // Ignore errors, fallback to globe icon
+            }
+        }
     }
 }
 

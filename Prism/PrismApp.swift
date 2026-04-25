@@ -1,8 +1,6 @@
 import SwiftUI
 import AppKit
 
-// MARK: - App Entry Point
-
 @main
 struct PrismApp: App {
 
@@ -13,52 +11,55 @@ struct PrismApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        Group {
-            WindowGroup {
-                ContentView()
-                    .environmentObject(browserState)
-                    .environmentObject(bookmarkStore)
-                    .environmentObject(settings)
-            }
-            .windowStyle(.hiddenTitleBar)
-            .windowToolbarStyle(.unified(showsTitle: false))
-            .commands {
-                CommandGroup(replacing: .newItem) {
-                    Button("New Tab") {
-                        browserState.addNewTab(url: nil)
+        WindowGroup {
+            ContentView()
+                .environmentObject(browserState)
+                .environmentObject(bookmarkStore)
+                .environmentObject(settings)
+                .onAppear {
+                    NSApp.windows.forEach { window in
+                        window.styleMask.insert(.fullSizeContentView)
+                        window.titlebarAppearsTransparent = true
+                        window.titleVisibility = .hidden
+                        window.titlebarSeparatorStyle = .none
+                        window.isMovableByWindowBackground = true
                     }
-                    .keyboardShortcut("t", modifiers: .command)
                 }
-
-                CommandGroup(after: .newItem) {
-                    Button("Close Tab") {
-                        if let tab = browserState.activeTab {
-                            browserState.closeTab(tab)
-                        }
-                    }
-                    .keyboardShortcut("w", modifiers: .command)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified(showsTitle: false))
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Tab") {
+                    browserState.addNewTab(url: nil)
                 }
-
-                CommandGroup(replacing: .sidebar) {
-                    Button("Toggle Bookmarks Sidebar") {
-                        browserState.toggleSidebar()
-                    }
-                    .keyboardShortcut("b", modifiers: .command)
-                }
+                .keyboardShortcut("t", modifiers: .command)
             }
 
-            Settings {
-                SettingsView()
-                    .environmentObject(settings)
+            CommandGroup(after: .newItem) {
+                Button("Close Tab") {
+                    if let tab = browserState.activeTab {
+                        browserState.closeTab(tab)
+                    }
+                }
+                .keyboardShortcut("w", modifiers: .command)
             }
+
+            CommandGroup(replacing: .sidebar) {
+                Button("Toggle Bookmarks Sidebar") {
+                    browserState.toggleSidebar()
+                }
+                .keyboardShortcut("b", modifiers: .command)
+            }
+        }
+
+        Settings {
+            SettingsView()
+                .environmentObject(settings)
         }
     }
 }
 
-// MARK: - AppDelegate
-
 class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        // Nothing needed yet
-    }
+    func applicationDidFinishLaunching(_ notification: Notification) {}
 }

@@ -45,6 +45,14 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         self.webView = WKWebView(frame: .zero, configuration: configuration)
         self.settings = settings
         super.init()
+
+        let safariUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
+        webView.customUserAgent = safariUA
+
+        let source = "(function() { document.body.style.paddingTop = '60px'; })();"
+        let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        webView.configuration.userContentController.addUserScript(script)
+
         self.webView.navigationDelegate = self
         self.webView.uiDelegate = self
         setupKVO()
