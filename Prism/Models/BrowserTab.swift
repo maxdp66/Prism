@@ -103,12 +103,21 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     // MARK: - Navigation
 
-    func navigate(to input: String) {
+    func navigate(to input: String, grabFocus: Bool = false) {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         if let url = resolveURL(from: trimmed) {
+            displayURL = url.absoluteString
             webView.load(URLRequest(url: url))
+
+            if grabFocus {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    guard self.webView.window != nil else { return }
+                    self.webView.window?.makeFirstResponder(self.webView)
+                }
+            }
         }
     }
 
@@ -120,18 +129,22 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
             }
         }
 
-        // Looks like a domain (contains a dot, no spaces, and has a plausible TLD)
-        let domainTLDs = [".com", ".org", ".net", ".edu", ".gov", ".io", ".co", ".ai", ".app", ".dev"]
-        if !input.contains(" ") && domainTLDs.contains(where: { input.lowercased().contains($0) }) {
-            let candidate = input.hasPrefix("http://") || input.hasPrefix("https://") ? input : "https://\(input)"
-            if let url = URL(string: candidate), url.host != nil {
-                return url
+        // Looks like a domain: contains a dot, no spaces, and last segment is >= 2 chars
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.contains(" ") && trimmed.contains(".") {
+            let components = trimmed.split(separator: ".")
+            if let last = components.last, last.count >= 2 {
+                let candidate = trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
+                    ? trimmed
+                    : "https://\(trimmed)"
+                if let url = URL(string: candidate), url.host != nil {
+                    return url
+                }
             }
         }
 
         // Fall through to selected search engine
-        let searchURL = settings.searchQueryURL(for: input)
-        return searchURL
+        return settings.searchQueryURL(for: input)
     }
 
     func goBack()    { webView.goBack() }
@@ -149,10 +162,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 extension BrowserTab: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        DispatchQueue.main.async {
-            self.blockedItemsCount = 0
-            self.favicon = nil
-        }
+        self.blockedItemsCount = 0
+        self.favicon = nil
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -194,9 +205,9 @@ extension BrowserTab: WKNavigationDelegate {
 
     private func loadFavicon() {
         guard let host = webView.url?.host else { return }
-        let cacheKey = "favicon:\(host)" as NSString
+        let cacheKeyString = "favicon:\(host)"
 
-        if let cached = faviconCache.object(forKey: cacheKey) {
+        if let cached = faviconCache.object(forKey: cacheKeyString as NSString) {
             self.favicon = cached
             return
         }
@@ -211,7 +222,7 @@ extension BrowserTab: WKNavigationDelegate {
                   let data = data,
                   let image = NSImage(data: data),
                   error == nil else { return }
-            faviconCache.setObject(image, forKey: cacheKey)
+            faviconCache.setObject(image, forKey: cacheKeyString as NSString)
             Task { @MainActor in
                 self.favicon = image
             }

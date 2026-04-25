@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var suggestions: [Suggestion] = []
     @State private var barFrame: CGRect = .zero
     @State private var suggestionsHeight: CGFloat = 0
+    @State private var selectedSuggestionIndex: Int? = nil
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -22,7 +23,8 @@ struct ContentView: View {
                 BrowserToolbar(
                     barFrame: $barFrame,
                     suggestions: $suggestions,
-                    suggestionsHeight: $suggestionsHeight
+                    suggestionsHeight: $suggestionsHeight,
+                    selectedSuggestionIndex: $selectedSuggestionIndex
                 )
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
@@ -37,21 +39,30 @@ struct ContentView: View {
                             .environmentObject(browserState)
                             .environmentObject(bookmarkStore)
                             .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
+                            .transition(.move(edge: .leading))
                     }
 
                     ZStack {
                         if let tab = browserState.activeTab {
                             if tab.displayURL.isEmpty && !tab.isLoading {
-                                NewTabView()
+                                NewTabView(clearSuggestions: { suggestions = [] })
                                     .environmentObject(browserState)
                                     .environmentObject(settings)
                             } else {
                                 WebContentView(webView: tab.webView)
                             }
                         } else {
-                            NewTabView()
+                            NewTabView(clearSuggestions: { suggestions = [] })
                                 .environmentObject(browserState)
                                 .environmentObject(settings)
+                        }
+
+                        if !suggestions.isEmpty {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture { suggestions = [] }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .zIndex(1)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -63,8 +74,9 @@ struct ContentView: View {
                 SuggestionsOverlay(
                     suggestions: suggestions,
                     suggestionsHeight: $suggestionsHeight,
+                    selectedIndex: $selectedSuggestionIndex,
                     onSelect: { suggestion in
-                        browserState.activeTab?.navigate(to: suggestion.text)
+                        browserState.activeTab?.navigate(to: suggestion.text, grabFocus: true)
                         suggestions = []
                     }
                 )
@@ -73,8 +85,12 @@ struct ContentView: View {
                     x: barFrame.midX,
                     y: barFrame.maxY + suggestionsHeight / 2 + 8
                 )
-                .zIndex(999)
+                .zIndex(2)
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                .onExitCommand {
+                    suggestions = []
+                    selectedSuggestionIndex = nil
+                }
             }
         }
         .coordinateSpace(name: "browserWindow")
@@ -83,6 +99,10 @@ struct ContentView: View {
         .frame(minWidth: 900, minHeight: 600)
         .background(Color(NSColor.windowBackgroundColor))
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in }
+        .onChange(of: browserState.activeTabId) { _ in
+            suggestions = []
+            selectedSuggestionIndex = nil
+        }
     }
 }
 
@@ -93,58 +113,74 @@ struct BrowserToolbar: View {
     @Binding var barFrame: CGRect
     @Binding var suggestions: [Suggestion]
     @Binding var suggestionsHeight: CGFloat
+    @Binding var selectedSuggestionIndex: Int?
 
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
 
     var body: some View {
-        HStack(spacing: 6) {
-            NavButton(
-                symbolName: "chevron.left",
-                tooltip: "Go Back (⌘[)",
-                enabled: browserState.activeTab?.canGoBack ?? false
-            ) {
-                browserState.activeTab?.goBack()
-            }
+        HStack(spacing: 0) {
+            // Left toolbar buttons – fixed min-width keeps the address bar centred
+            HStack(spacing: 6) {
+                NavButton(
+                    symbolName: "chevron.left",
+                    tooltip: "Go Back (⌘[)",
+                    enabled: browserState.activeTab?.canGoBack ?? false
+                ) {
+                    browserState.activeTab?.goBack()
+                }
 
-            NavButton(
-                symbolName: "chevron.right",
-                tooltip: "Go Forward (⌘])",
-                enabled: browserState.activeTab?.canGoForward ?? false
-            ) {
-                browserState.activeTab?.goForward()
-            }
+                NavButton(
+                    symbolName: "chevron.right",
+                    tooltip: "Go Forward (⌘])",
+                    enabled: browserState.activeTab?.canGoForward ?? false
+                ) {
+                    browserState.activeTab?.goForward()
+                }
 
-            NavButton(
-                symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
-                tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
-                enabled: true
-            ) {
-                if browserState.activeTab?.isLoading == true {
-                    browserState.activeTab?.stopLoad()
-                } else {
-                    browserState.activeTab?.reload()
+                NavButton(
+                    symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
+                    tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
+                    enabled: true
+                ) {
+                    if browserState.activeTab?.isLoading == true {
+                        browserState.activeTab?.stopLoad()
+                    } else {
+                        browserState.activeTab?.reload()
+                    }
                 }
             }
+            .frame(minWidth: 100, alignment: .leading)
 
+            Spacer()
+
+            // Centred address bar, Safari-style
             AddressBarView(
                 barFrame: $barFrame,
                 suggestions: $suggestions,
-                suggestionsHeight: $suggestionsHeight
+                suggestionsHeight: $suggestionsHeight,
+                selectedSuggestionIndex: $selectedSuggestionIndex
             )
             .environmentObject(browserState)
             .environmentObject(bookmarkStore)
+            .frame(maxWidth: 600)
 
-            NavButton(
-                symbolName: "sidebar.left",
-                tooltip: "Toggle Bookmarks (⌘B)",
-                enabled: true
-            ) {
-                browserState.toggleSidebar()
+            Spacer()
+
+            // Right toolbar buttons – mirror the left side so the bar stays centred
+            HStack(spacing: 6) {
+                NavButton(
+                    symbolName: "sidebar.left",
+                    tooltip: "Toggle Bookmarks (⌘B)",
+                    enabled: true
+                ) {
+                    browserState.toggleSidebar()
+                }
             }
+            .frame(minWidth: 100, alignment: .trailing)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .background(
             ZStack {
                 VStack {
@@ -181,6 +217,9 @@ struct NavButton: View {
     @State private var isHovered = false
 
     var body: some View {
+        let shortcut = keyEquivalent(for: symbolName)
+        let mods = modifiers(for: symbolName)
+
         Button(action: action) {
             Image(systemName: symbolName)
                 .font(.system(size: 13, weight: .medium))
@@ -197,7 +236,7 @@ struct NavButton: View {
         .disabled(!enabled)
         .help(tooltip)
         .onHover { isHovered = $0 }
-        .keyboardShortcut(keyEquivalent(for: symbolName), modifiers: modifiers(for: symbolName))
+        .modifier(ConditionalKeyboardShortcut(keyEquivalent: shortcut, modifiers: mods))
     }
 
     private func keyEquivalent(for symbol: String) -> KeyEquivalent {
@@ -213,6 +252,19 @@ struct NavButton: View {
         switch symbol {
         case "chevron.left", "chevron.right", "arrow.clockwise", "xmark": return .command
         default: return []
+        }
+    }
+}
+
+struct ConditionalKeyboardShortcut: ViewModifier {
+    let keyEquivalent: KeyEquivalent
+    let modifiers: EventModifiers
+
+    func body(content: Content) -> some View {
+        if keyEquivalent != KeyEquivalent("\0") || !modifiers.isEmpty {
+            content.keyboardShortcut(keyEquivalent, modifiers: modifiers)
+        } else {
+            content
         }
     }
 }

@@ -10,6 +10,8 @@ struct NewTabView: View {
     @State private var searchText: String = ""
     @FocusState private var searchFocused: Bool
 
+    let clearSuggestions: () -> Void
+
     // Quick-access tiles
     private let quickLinks: [(title: String, url: String, icon: String)] = [
         ("GitHub",       "https://github.com",                   "chevron.left.forwardslash.chevron.right"),
@@ -82,7 +84,8 @@ struct NewTabView: View {
                                 icon: link.icon,
                                 url: link.url
                             ) {
-                                browserState.activeTab?.navigate(to: link.url)
+                                clearSuggestions()
+                                browserState.activeTab?.navigate(to: link.url, grabFocus: true)
                             }
                         }
                     }
@@ -105,7 +108,9 @@ struct NewTabView: View {
     private func performSearch() {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
-        browserState.activeTab?.navigate(to: query)
+        clearSuggestions()
+        searchFocused = false
+        browserState.activeTab?.navigate(to: query, grabFocus: true)
         searchText = ""
     }
 }

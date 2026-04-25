@@ -8,6 +8,7 @@ struct AddressBarView: View {
     @Binding var barFrame: CGRect
     @Binding var suggestions: [Suggestion]
     @Binding var suggestionsHeight: CGFloat
+    @Binding var selectedSuggestionIndex: Int?
 
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
@@ -17,7 +18,6 @@ struct AddressBarView: View {
     @State private var isEditing: Bool = false
     @State private var isHovered: Bool = false
     @State private var showPrivacyPopover = false
-    @State private var selectedSuggestionIndex: Int? = nil
     @State private var debounceWorkItem: DispatchWorkItem?
     @FocusState private var isFocused: Bool
 
@@ -46,6 +46,28 @@ struct AddressBarView: View {
                     .opacity(isEditing ? 1 : 0)
                     .onSubmit {
                         commit()
+                    }
+                    .onMoveCommand { direction in
+                        switch direction {
+                        case .down:
+                            if let current = selectedSuggestionIndex {
+                                if current < suggestions.count - 1 {
+                                    selectedSuggestionIndex = current + 1
+                                }
+                            } else if !suggestions.isEmpty {
+                                selectedSuggestionIndex = 0
+                            }
+                        case .up:
+                            if let current = selectedSuggestionIndex {
+                                if current > 0 {
+                                    selectedSuggestionIndex = current - 1
+                                }
+                            } else if !suggestions.isEmpty {
+                                selectedSuggestionIndex = suggestions.count - 1
+                            }
+                        default:
+                            break
+                        }
                     }
                     .onChange(of: isFocused) { focused in
                         withAnimation(.easeInOut(duration: 0.15)) {
@@ -236,7 +258,9 @@ struct AddressBarView: View {
 
         Button {
             if isBookmarked {
-                bookmarkStore.remove(bookmarkStore.bookmarks.first { $0.url == url }!)
+                if let bookmark = bookmarkStore.bookmarks.first(where: { $0.url == url }) {
+                    bookmarkStore.remove(bookmark)
+                }
             } else if !url.isEmpty {
                 bookmarkStore.add(title: activeTab?.title ?? "", url: url)
             }
@@ -266,20 +290,33 @@ struct AddressBarView: View {
     private func commit() {
         let text = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
         isFocused = false
-        suggestions = []
-        guard !text.isEmpty else { return }
-        browserState.activeTab?.navigate(to: text)
+
+        // Capture selected suggestion BEFORE clearing the array
+        if let index = selectedSuggestionIndex,
+           index >= 0, index < suggestions.count {
+            let selected = suggestions[index]
+            selectedSuggestionIndex = nil
+            suggestions = []
+            browserState.activeTab?.navigate(to: selected.text, grabFocus: true)
+        } else {
+            suggestions = []
+            selectedSuggestionIndex = nil
+            if !text.isEmpty {
+                browserState.activeTab?.navigate(to: text, grabFocus: true)
+            }
+        }
     }
 }
+
+// MARK: - SuggestionsOverlay
 
 // MARK: - SuggestionsOverlay
 
 struct SuggestionsOverlay: View {
     let suggestions: [Suggestion]
     @Binding var suggestionsHeight: CGFloat
+    @Binding var selectedIndex: Int?
     let onSelect: (Suggestion) -> Void
-
-    @State private var selectedIndex: Int? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -294,7 +331,9 @@ struct SuggestionsOverlay: View {
                             onSelect(suggestion)
                         }
                         .onHover { hovering in
-                            selectedIndex = hovering ? index : nil
+                            if hovering {
+                                selectedIndex = index
+                            }
                         }
                     }
                 }
@@ -332,19 +371,19 @@ struct SuggestionRow: View {
         HStack(spacing: 12) {
             Image(systemName: suggestion.type.iconName)
                 .font(.system(size: 14))
-                .foregroundColor(iconColor)
+                .foregroundColor(isSelected ? .white : iconColor)
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(suggestion.text)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.primary)
+                    .foregroundColor(isSelected ? .white : .primary)
                     .lineLimit(1)
 
                 if let subtitle = suggestion.subtitle {
                     Text(subtitle)
                         .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                         .lineLimit(1)
                 }
             }
@@ -354,13 +393,13 @@ struct SuggestionRow: View {
             if let date = suggestion.dateText {
                 Text(date)
                     .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(height: 36)
-        .background(isSelected ? Color.blue.opacity(0.15) : Color.clear)
+        .background(isSelected ? Color.accentColor : Color.clear)
         .cornerRadius(6)
     }
 

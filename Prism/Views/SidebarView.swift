@@ -23,7 +23,17 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
+            HStack(spacing: 6) {
+                Button {
+                    browserState.toggleSidebar()
+                } label: {
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Hide Bookmarks Sidebar")
+
                 Label("Bookmarks", systemImage: "bookmark.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.primary)
@@ -81,7 +91,7 @@ struct SidebarView: View {
             List {
                 ForEach(filteredBookmarks) { bookmark in
                     BookmarkRowView(bookmark: bookmark) {
-                        browserState.activeTab?.navigate(to: bookmark.url)
+                        browserState.activeTab?.navigate(to: bookmark.url, grabFocus: true)
                     }
                     .contextMenu {
                         Button("Delete", role: .destructive) {

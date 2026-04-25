@@ -15,6 +15,8 @@ final class BrowserState: ObservableObject {
     @Published var sidebarVisible: Bool = true
     @Published var isContentBlockerReady: Bool = false
 
+    private let sidebarVisibleKey = "com.prism.sidebarVisible"
+
     // MARK: Derived
 
     var activeTab: BrowserTab? {
@@ -38,6 +40,8 @@ final class BrowserState: ObservableObject {
     // MARK: Init
 
     init() {
+        sidebarVisible = UserDefaults.standard.object(forKey: sidebarVisibleKey) as? Bool ?? true
+
         setupConfiguration()
         listenForNewTabNotifications()
         observeSettings()
@@ -78,6 +82,10 @@ final class BrowserState: ObservableObject {
     }
 
     /// Rebuild WKWebViewConfiguration when settings change.
+    ///
+    /// - Important: This only affects *new* tabs. Existing WKWebViews cannot
+    ///   have their configuration changed after creation. To apply settings to
+    ///   the current tab the user must reload the page or open a new tab.
     private func rebuildConfiguration() {
         let config = WKWebViewConfiguration()
         config.allowsAirPlayForMediaPlayback = true
@@ -168,9 +176,8 @@ final class BrowserState: ObservableObject {
     // MARK: - Sidebar
 
     func toggleSidebar() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            sidebarVisible.toggle()
-        }
+        sidebarVisible.toggle()
+        UserDefaults.standard.set(sidebarVisible, forKey: sidebarVisibleKey)
     }
 
     deinit {

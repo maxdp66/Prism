@@ -8,6 +8,10 @@ struct Suggestion: Identifiable, Equatable {
     let subtitle: String?
     let type: SuggestionType
     let dateText: String?
+
+    static func == (lhs: Suggestion, rhs: Suggestion) -> Bool {
+        lhs.text == rhs.text && lhs.type == rhs.type && lhs.subtitle == rhs.subtitle
+    }
 }
 
 // MARK: - SuggestionType
@@ -213,7 +217,8 @@ final class AutocompleteService {
     }
 
     private func extractHost(from text: String) -> String? {
-        guard let url = URL(string: text.hasPrefix("http") ? text : "https://\(text)"),
+        let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? text
+        guard let url = URL(string: encoded.hasPrefix("http") ? encoded : "https://\(encoded)"),
               let host = url.host else {
             return nil
         }
@@ -222,7 +227,12 @@ final class AutocompleteService {
 
     private func isLikelyURL(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.contains(".") && !trimmed.contains(" ") && !trimmed.hasSuffix(".com") && !trimmed.hasSuffix(".org")
+        // Contains a dot (domain separator), no spaces, and has a plausible path or TLD
+        guard trimmed.contains(".") && !trimmed.contains(" ") else { return false }
+        // Exclude raw search queries that happen to contain dots (e.g. "swift 5.9")
+        let components = trimmed.split(separator: ".")
+        guard let last = components.last, last.count >= 2 else { return false }
+        return true
     }
 
     func cancel() {
