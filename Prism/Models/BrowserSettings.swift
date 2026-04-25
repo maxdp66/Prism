@@ -10,6 +10,8 @@ enum SearchEngine: String, CaseIterable, Identifiable, Codable, Sendable {
     case brave = "Brave"
     case ecosia = "Ecosia"
 
+    var id: String { rawValue }
+
     var baseURL: String {
         switch self {
         case .duckDuckGo: "https://duckduckgo.com/"
@@ -22,11 +24,7 @@ enum SearchEngine: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var queryParameter: String {
         switch self {
-        case .duckDuckGo: "q"
-        case .google:     "q"
-        case .bing:       "q"
-        case .brave:      "q"
-        case .ecosia:     "q"
+        case .duckDuckGo, .google, .bing, .brave, .ecosia: "q"
         }
     }
 
@@ -54,42 +52,13 @@ final class BrowserSettings: ObservableObject {
         static let homepageURL        = "homepageURL"
     }
 
-    // MARK: - Published properties (backed by @AppStorage)
+    // MARK: - Published properties backed by @AppStorage
 
-    @AppStorage(Keys.searchEngine)       private var storedSearchEngine: String = SearchEngine.duckDuckGo.rawValue
-    @AppStorage(Keys.javascriptEnabled)  private var storedJavascriptEnabled: Bool = true
-    @AppStorage(Keys.contentBlockerEnabled) private var storedContentBlockerEnabled: Bool = true
-    @AppStorage(Keys.autoplayEnabled)    private var storedAutoplayEnabled: Bool = false
-    @AppStorage(Keys.homepageURL)        private var storedHomepageURL: String = ""
-
-    // MARK: - Public bindings
-
-    @Published var searchEngine: SearchEngine = .duckDuckGo {
-        didSet { storedSearchEngine = searchEngine.rawValue }
-    }
-    @Published var javascriptEnabled: Bool = true {
-        didSet { storedJavascriptEnabled = javascriptEnabled }
-    }
-    @Published var contentBlockerEnabled: Bool = true {
-        didSet { storedContentBlockerEnabled = contentBlockerEnabled }
-    }
-    @Published var autoplayEnabled: Bool = false {
-        didSet { storedAutoplayEnabled = autoplayEnabled }
-    }
-    @Published var homepageURL: String = "" {
-        didSet { storedHomepageURL = homepageURL }
-    }
-
-    // MARK: - Init
-
-    private init() {
-        // Sync @AppStorage values into @Published properties at startup
-        _searchEngine          = AppStorage(wrappedValue: SearchEngine(rawValue: storedSearchEngine) ?? .duckDuckGo,   Keys.searchEngine)
-        _javascriptEnabled     = AppStorage(wrappedValue: storedJavascriptEnabled,                                          Keys.javascriptEnabled)
-        _contentBlockerEnabled = AppStorage(wrappedValue: storedContentBlockerEnabled,                                    Keys.contentBlockerEnabled)
-        _autoplayEnabled       = AppStorage(wrappedValue: storedAutoplayEnabled,                                          Keys.autoplayEnabled)
-        _homepageURL           = AppStorage(wrappedValue: storedHomepageURL,                                              Keys.homepageURL)
-    }
+    @AppStorage(Keys.searchEngine)       var searchEngine: SearchEngine = .duckDuckGo
+    @AppStorage(Keys.javascriptEnabled)  var javascriptEnabled: Bool = true
+    @AppStorage(Keys.contentBlockerEnabled) var contentBlockerEnabled: Bool = true
+    @AppStorage(Keys.autoplayEnabled)    var autoplayEnabled: Bool = false
+    @AppStorage(Keys.homepageURL)        var homepageURL: String = ""
 
     // MARK: - Helpers
 
