@@ -5,6 +5,10 @@ import AppKit
 
 struct AddressBarView: View {
 
+    @Binding var barFrame: CGRect
+    @Binding var suggestions: [Suggestion]
+    @Binding var suggestionsHeight: CGFloat
+
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
     @EnvironmentObject private var settings: BrowserSettings
@@ -13,8 +17,8 @@ struct AddressBarView: View {
     @State private var isEditing: Bool = false
     @State private var isHovered: Bool = false
     @State private var showPrivacyPopover = false
-    @State private var suggestions: [String] = []
-    @State private var barFrame: CGRect = .zero
+    @State private var selectedSuggestionIndex: Int? = nil
+    @State private var debounceWorkItem: DispatchWorkItem?
     @FocusState private var isFocused: Bool
 
     var activeTab: BrowserTab? { browserState.activeTab }
@@ -24,27 +28,7 @@ struct AddressBarView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            addressBarContent
-                .background(
-                    GeometryReader { geo in
-                        Color.clear
-                            .preference(key: FramePrefKey.self, value: geo.frame(in: .global))
-                    }
-                )
-                .onPreferenceChange(FramePrefKey.self) { newFrame in
-                    barFrame = newFrame
-                }
-                .zIndex(0)
-
-            if isFocused && !suggestions.isEmpty {
-                suggestionsList
-                    .frame(width: barFrame.width)
-                    .position(x: barFrame.midX, y: barFrame.maxY + 8 + 100)
-                    .zIndex(999)
-            }
-        }
-        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
+        addressBarContent
     }
 
     private var addressBarContent: some View {
@@ -74,11 +58,21 @@ struct AddressBarView: View {
                         }
                     }
                     .onChange(of: editingText) { newValue in
-                        if isFocused && settings.autocompleteProvider != .none && newValue.count >= 2 {
-                            fetchAutocomplete(for: newValue)
-                        } else {
+                        selectedSuggestionIndex = nil
+                        debounceWorkItem?.cancel()
+
+                        guard isFocused,
+                              settings.autocompleteProvider != .none,
+                              newValue.count >= 2 else {
                             suggestions = []
+                            return
                         }
+
+                        let workItem = DispatchWorkItem {
+                            fetchAutocomplete(for: newValue)
+                        }
+                        debounceWorkItem = workItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
                     }
             }
 
@@ -108,6 +102,17 @@ struct AddressBarView: View {
         .onTapGesture {
             isFocused = true
         }
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        barFrame = geo.frame(in: .named("browserWindow"))
+                    }
+                    .onChange(of: geo.frame(in: .named("browserWindow"))) { newFrame in
+                        barFrame = newFrame
+                    }
+            }
+        )
         .background(
             Button("") {
                 isFocused = true
@@ -245,40 +250,6 @@ struct AddressBarView: View {
         .opacity(url.isEmpty ? 0 : 1)
     }
 
-    @ViewBuilder
-    private var suggestionsList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(suggestions, id: \.self) { suggestion in
-                Button {
-                    editingText = suggestion
-                    suggestions = []
-                    commit()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                            .frame(width: 16)
-
-                        Text(suggestion)
-                            .font(.system(size: 13))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.vertical, 6)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
-    }
-
     private func fetchAutocomplete(for query: String) {
         AutocompleteService.shared.fetchSuggestions(
             for: query,
@@ -296,17 +267,109 @@ struct AddressBarView: View {
         let text = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
         isFocused = false
         suggestions = []
-        if !text.isEmpty {
-            browserState.activeTab?.navigate(to: text)
-        }
+        guard !text.isEmpty else { return }
+        browserState.activeTab?.navigate(to: text)
     }
 }
 
-// MARK: - Frame Preference Key
+// MARK: - SuggestionsOverlay
 
-private struct FramePrefKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
+struct SuggestionsOverlay: View {
+    let suggestions: [Suggestion]
+    @Binding var suggestionsHeight: CGFloat
+    let onSelect: (Suggestion) -> Void
+
+    @State private var selectedIndex: Int? = nil
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                        SuggestionRow(
+                            suggestion: suggestion,
+                            isSelected: selectedIndex == index
+                        )
+                        .onTapGesture {
+                            onSelect(suggestion)
+                        }
+                        .onHover { hovering in
+                            selectedIndex = hovering ? index : nil
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: 400)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.2), radius: 15, y: 10)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        suggestionsHeight = geo.size.height
+                    }
+                    .onChange(of: geo.size.height) {
+                        suggestionsHeight = $0
+                    }
+            }
+        )
+    }
+}
+
+// MARK: - SuggestionRow
+
+struct SuggestionRow: View {
+    let suggestion: Suggestion
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: suggestion.type.iconName)
+                .font(.system(size: 14))
+                .foregroundColor(iconColor)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(suggestion.text)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                if let subtitle = suggestion.subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            if let date = suggestion.dateText {
+                Text(date)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(height: 36)
+        .background(isSelected ? Color.blue.opacity(0.15) : Color.clear)
+        .cornerRadius(6)
+    }
+
+    private var iconColor: Color {
+        switch suggestion.type {
+        case .url: return .blue
+        case .bookmark: return .yellow
+        case .history: return .secondary
+        case .search: return .secondary
+        }
     }
 }

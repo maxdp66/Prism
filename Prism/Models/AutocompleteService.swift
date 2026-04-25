@@ -1,5 +1,33 @@
 import Foundation
 
+// MARK: - Suggestion
+
+struct Suggestion: Identifiable, Equatable {
+    let id = UUID()
+    let text: String
+    let subtitle: String?
+    let type: SuggestionType
+    let dateText: String?
+}
+
+// MARK: - SuggestionType
+
+enum SuggestionType: String, CaseIterable {
+    case search
+    case url
+    case bookmark
+    case history
+
+    var iconName: String {
+        switch self {
+        case .search: return "magnifyingglass"
+        case .url: return "globe"
+        case .bookmark: return "star.fill"
+        case .history: return "clock"
+        }
+    }
+}
+
 // MARK: - AutocompleteService
 
 final class AutocompleteService {
@@ -16,7 +44,7 @@ final class AutocompleteService {
         provider: AutocompleteProvider,
         customURL: String?,
         apiKey: String?,
-        completion: @escaping ([String]) -> Void
+        completion: @escaping ([Suggestion]) -> Void
     ) {
         currentTask?.cancel()
 
@@ -65,7 +93,7 @@ final class AutocompleteService {
             request.url = acURL
 
         case .brave:
-            guard apiKey?.isEmpty == false else {
+            guard let apiKey = apiKey, !apiKey.isEmpty else {
                 completion([])
                 return
             }
@@ -118,7 +146,7 @@ final class AutocompleteService {
                 return
             }
 
-            let suggestions = self.parseSuggestions(from: data, provider: provider)
+            let suggestions = self.parseSuggestions(from: data, provider: provider, query: query)
 
             DispatchQueue.main.async {
                 completion(suggestions)
@@ -128,7 +156,9 @@ final class AutocompleteService {
         currentTask?.resume()
     }
 
-    private func parseSuggestions(from data: Data, provider: AutocompleteProvider) -> [String] {
+    private func parseSuggestions(from data: Data, provider: AutocompleteProvider, query: String) -> [Suggestion] {
+        let rawSuggestions: [String]
+
         switch provider {
         case .none:
             return []
@@ -139,7 +169,7 @@ final class AutocompleteService {
                   let suggestions = json[1] as? [String] else {
                 return []
             }
-            return suggestions
+            rawSuggestions = suggestions
 
         case .duckDuckGo:
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
@@ -147,7 +177,7 @@ final class AutocompleteService {
                   let suggestions = json[1] as? [String] else {
                 return []
             }
-            return suggestions
+            rawSuggestions = suggestions
 
         case .google:
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
@@ -155,15 +185,44 @@ final class AutocompleteService {
                   let suggestionsArray = json[1] as? [String] else {
                 return []
             }
-            return suggestionsArray
+            rawSuggestions = suggestionsArray
 
         case .brave:
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let suggestions = json["suggestions"] as? [[String: Any]] else {
                 return []
             }
-            return suggestions.compactMap { $0["text"] as? String }
+            rawSuggestions = suggestions.compactMap { $0["text"] as? String }
         }
+
+        return rawSuggestions.map { suggestion in
+            let type: SuggestionType
+            if isLikelyURL(suggestion) {
+                type = .url
+            } else {
+                type = .search
+            }
+            let subtitle = extractHost(from: suggestion)
+            return Suggestion(
+                text: suggestion,
+                subtitle: subtitle,
+                type: type,
+                dateText: nil
+            )
+        }
+    }
+
+    private func extractHost(from text: String) -> String? {
+        guard let url = URL(string: text.hasPrefix("http") ? text : "https://\(text)"),
+              let host = url.host else {
+            return nil
+        }
+        return host.replacingOccurrences(of: "www.", with: "")
+    }
+
+    private func isLikelyURL(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.contains(".") && !trimmed.contains(" ") && !trimmed.hasSuffix(".com") && !trimmed.hasSuffix(".org")
     }
 
     func cancel() {

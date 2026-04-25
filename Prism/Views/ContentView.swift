@@ -9,54 +9,80 @@ struct ContentView: View {
     @EnvironmentObject var bookmarkStore: BookmarkStore
     @EnvironmentObject private var settings: BrowserSettings
 
+    @State private var suggestions: [Suggestion] = []
+    @State private var barFrame: CGRect = .zero
+    @State private var suggestionsHeight: CGFloat = 0
+
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                TabBarView()
+                    .environmentObject(browserState)
 
-            // Tab bar
-            TabBarView()
-                .environmentObject(browserState)
-
-            // Toolbar: nav buttons + address bar
-            BrowserToolbar()
+                BrowserToolbar(
+                    barFrame: $barFrame,
+                    suggestions: $suggestions,
+                    suggestionsHeight: $suggestionsHeight
+                )
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
                 .environmentObject(settings)
 
-            Divider()
-                .opacity(0.3)
+                Divider()
+                    .opacity(0.3)
 
-            // Main content area
-            HSplitView {
-                if browserState.sidebarVisible {
-                    SidebarView()
-                        .environmentObject(browserState)
-                        .environmentObject(bookmarkStore)
-                        .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
-                }
+                HSplitView {
+                    if browserState.sidebarVisible {
+                        SidebarView()
+                            .environmentObject(browserState)
+                            .environmentObject(bookmarkStore)
+                            .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
+                    }
 
-                ZStack {
-                    if let tab = browserState.activeTab {
-                        if tab.displayURL.isEmpty && !tab.isLoading {
+                    ZStack {
+                        if let tab = browserState.activeTab {
+                            if tab.displayURL.isEmpty && !tab.isLoading {
+                                NewTabView()
+                                    .environmentObject(browserState)
+                                    .environmentObject(settings)
+                            } else {
+                                WebContentView(webView: tab.webView)
+                            }
+                        } else {
                             NewTabView()
                                 .environmentObject(browserState)
                                 .environmentObject(settings)
-                        } else {
-                            WebContentView(webView: tab.webView)
                         }
-                    } else {
-                        NewTabView()
-                            .environmentObject(browserState)
-                            .environmentObject(settings)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .zIndex(0)
+
+            if !suggestions.isEmpty {
+                SuggestionsOverlay(
+                    suggestions: suggestions,
+                    suggestionsHeight: $suggestionsHeight,
+                    onSelect: { suggestion in
+                        browserState.activeTab?.navigate(to: suggestion.text)
+                        suggestions = []
+                    }
+                )
+                .frame(width: barFrame.width)
+                .position(
+                    x: barFrame.midX,
+                    y: barFrame.maxY + suggestionsHeight / 2 + 8
+                )
+                .zIndex(999)
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
+        .coordinateSpace(name: "browserWindow")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .frame(minWidth: 900, minHeight: 600)
         .background(Color(NSColor.windowBackgroundColor))
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            // nothing needed
-        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in }
     }
 }
 
@@ -64,12 +90,15 @@ struct ContentView: View {
 
 struct BrowserToolbar: View {
 
+    @Binding var barFrame: CGRect
+    @Binding var suggestions: [Suggestion]
+    @Binding var suggestionsHeight: CGFloat
+
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
 
     var body: some View {
         HStack(spacing: 6) {
-            // Navigation buttons
             NavButton(
                 symbolName: "chevron.left",
                 tooltip: "Go Back (⌘[)",
@@ -98,12 +127,14 @@ struct BrowserToolbar: View {
                 }
             }
 
-            // Address bar
-            AddressBarView()
-                .environmentObject(browserState)
-                .environmentObject(bookmarkStore)
+            AddressBarView(
+                barFrame: $barFrame,
+                suggestions: $suggestions,
+                suggestionsHeight: $suggestionsHeight
+            )
+            .environmentObject(browserState)
+            .environmentObject(bookmarkStore)
 
-            // Sidebar toggle
             NavButton(
                 symbolName: "sidebar.left",
                 tooltip: "Toggle Bookmarks (⌘B)",
@@ -116,7 +147,6 @@ struct BrowserToolbar: View {
         .padding(.vertical, 6)
         .background(
             ZStack {
-                // Progress bar at the bottom
                 VStack {
                     Spacer()
                     if let tab = browserState.activeTab, tab.isLoading {
