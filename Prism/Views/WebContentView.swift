@@ -24,12 +24,19 @@ struct WebContentView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        let newInsets = NSEdgeInsets(top: 48, left: 0, bottom: 0, right: 0)
-        if nsView.additionalSafeAreaInsets.top != newInsets.top ||
-           nsView.additionalSafeAreaInsets.left != newInsets.left ||
-           nsView.additionalSafeAreaInsets.bottom != newInsets.bottom ||
-           nsView.additionalSafeAreaInsets.right != newInsets.right {
-            nsView.additionalSafeAreaInsets = newInsets
+        let topPadding: CGFloat = 72
+        
+        if let scrollView = nsView.enclosingScrollView {
+            let contentInset = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
+            if scrollView.contentInsets.top != topPadding {
+                scrollView.contentInsets = contentInset
+                scrollView.verticalScrollElasticity = .none
+            }
+        }
+        
+        let safeAreaInsets = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
+        if nsView.additionalSafeAreaInsets.top != topPadding {
+            nsView.additionalSafeAreaInsets = safeAreaInsets
         }
     }
 }
@@ -47,7 +54,7 @@ struct WebContentContainer: NSViewRepresentable {
         container.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 48),
+            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 0),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
