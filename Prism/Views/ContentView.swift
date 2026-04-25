@@ -7,6 +7,7 @@ struct ContentView: View {
 
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
+    @EnvironmentObject private var settings: BrowserSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,6 +20,7 @@ struct ContentView: View {
             BrowserToolbar()
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
+                .environmentObject(settings)
 
             Divider()
                 .opacity(0.3)
@@ -37,12 +39,14 @@ struct ContentView: View {
                         if tab.displayURL.isEmpty && !tab.isLoading {
                             NewTabView()
                                 .environmentObject(browserState)
+                                .environmentObject(settings)
                         } else {
                             WebContentView(webView: tab.webView)
                         }
                     } else {
                         NewTabView()
                             .environmentObject(browserState)
+                            .environmentObject(settings)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -170,14 +174,14 @@ struct NavButton: View {
         switch symbol {
         case "chevron.left":  return "["
         case "chevron.right": return "]"
-        case "arrow.clockwise": return "r"
+        case "arrow.clockwise", "xmark": return "r"
         default: return "\0"
         }
     }
 
     private func modifiers(for symbol: String) -> EventModifiers {
         switch symbol {
-        case "chevron.left", "chevron.right", "arrow.clockwise": return .command
+        case "chevron.left", "chevron.right", "arrow.clockwise", "xmark": return .command
         default: return []
         }
     }

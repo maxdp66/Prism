@@ -68,11 +68,14 @@ final class BookmarkStore: ObservableObject {
         save()
     }
 
-    // MARK: Persistence
+    // MARK: Persistence (async, non-blocking)
 
     private func save() {
-        if let data = try? JSONEncoder().encode(bookmarks) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+        let snapshot = bookmarks
+        Task.detached(priority: .utility) {
+            if let data = try? JSONEncoder().encode(snapshot) {
+                UserDefaults.standard.set(data, forKey: self.storageKey)
+            }
         }
     }
 
@@ -91,6 +94,12 @@ final class BookmarkStore: ObservableObject {
             Bookmark(title: "Wikipedia", url: "https://wikipedia.org"),
             Bookmark(title: "DuckDuckGo", url: "https://duckduckgo.com"),
         ]
-        save()
+        // Save on background too
+        let snapshot = bookmarks
+        Task.detached(priority: .utility) {
+            if let data = try? JSONEncoder().encode(snapshot) {
+                UserDefaults.standard.set(data, forKey: self.storageKey)
+            }
+        }
     }
 }

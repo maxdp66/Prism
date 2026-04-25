@@ -5,6 +5,7 @@ import SwiftUI
 struct NewTabView: View {
 
     @EnvironmentObject var browserState: BrowserState
+    @EnvironmentObject private var settings: BrowserSettings
 
     @State private var searchText: String = ""
     @FocusState private var searchFocused: Bool
@@ -20,6 +21,10 @@ struct NewTabView: View {
         ("Twitter/X",    "https://x.com",                        "bird.fill"),
         ("Anthropic",    "https://anthropic.com",                "sparkles"),
     ]
+
+    private var searchPlaceholder: String {
+        "Search \(settings.searchEngine.rawValue) or enter a URL"
+    }
 
     var body: some View {
         ZStack {
@@ -38,7 +43,7 @@ struct NewTabView: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.white.opacity(0.7))
 
-                    TextField("Search DuckDuckGo or enter a URL", text: $searchText)
+                    TextField(searchPlaceholder, text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 16))
                         .foregroundColor(.white)
@@ -90,7 +95,8 @@ struct NewTabView: View {
             .padding()
         }
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Focus after first render — .task preferred over DispatchQueue.asyncAfter
+            Task { @MainActor in
                 searchFocused = true
             }
         }
@@ -154,16 +160,10 @@ struct QuickLinkTile: View {
 struct PrismTitleView: View {
     var body: some View {
         VStack(spacing: 16) {
-            // Opalescent white — the tint is so subtle the text reads as
-            // clean white, but shifts faintly from rose → white → sky → lavender,
-            // like light caught in a crystal. No garish rainbow.
             Text("Prism")
                 .font(.system(size: 72, weight: .bold, design: .rounded))
                 .tracking(-1)
                 .foregroundStyle(
-                    // Opacity baked into the stops so the glow shadows
-                    // are unaffected — the fill is ~65 % opaque, letting
-                    // the prism rays behind bleed through the letter shapes.
                     LinearGradient(
                         stops: [
                             .init(color: Color(red: 1.0, green: 0.91, blue: 0.93).opacity(0.65), location: 0.0),
@@ -198,8 +198,6 @@ struct PrismBackground: View {
                 Color(red: 0.04, green: 0.04, blue: 0.07)
 
                 // ── White incoming beam ──────────────────────────────────────
-                // A soft triangular wedge narrowing to the focal point at top-center.
-                // Simulates collimated light entering the prism from above.
                 Canvas { ctx, size in
                     let focal = CGPoint(x: size.width * 0.5, y: 0)
                     var beam = Path()
@@ -212,9 +210,6 @@ struct PrismBackground: View {
                 .blur(radius: 28)
 
                 // ── Spectrum fan ─────────────────────────────────────────────
-                // Six triangular rays emanate from the same focal point downward.
-                // Each ray fans out to cover a portion of the bottom edge,
-                // with the hues ordered R → O → Y → G → B → V.
                 Canvas { ctx, size in
                     let focal = CGPoint(x: size.width * 0.5, y: 0)
                     let bottom = size.height * 1.08
@@ -222,14 +217,13 @@ struct PrismBackground: View {
                     let fanRight = size.width *  1.08
                     let fanWidth = fanRight - fanLeft
 
-                    // (red, green, blue, opacity) — hand-tuned for clean look
                     let bands: [(Double, Double, Double, Double)] = [
-                        (0.95, 0.20, 0.20, 0.28), // red
-                        (0.98, 0.55, 0.08, 0.22), // orange
-                        (0.97, 0.93, 0.12, 0.20), // yellow
-                        (0.15, 0.82, 0.38, 0.22), // green
-                        (0.18, 0.52, 0.98, 0.28), // blue
-                        (0.62, 0.10, 0.96, 0.24), // violet
+                        (0.95, 0.20, 0.20, 0.28),
+                        (0.98, 0.55, 0.08, 0.22),
+                        (0.97, 0.93, 0.12, 0.20),
+                        (0.15, 0.82, 0.38, 0.22),
+                        (0.18, 0.52, 0.98, 0.28),
+                        (0.62, 0.10, 0.96, 0.24),
                     ]
 
                     let count = Double(bands.count)
@@ -249,7 +243,6 @@ struct PrismBackground: View {
                 .blur(radius: 72)
 
                 // ── Secondary inner glow ─────────────────────────────────────
-                // A slightly tighter, sharper pass to add definition to the bands.
                 Canvas { ctx, size in
                     let focal = CGPoint(x: size.width * 0.5, y: 0)
                     let bottom = size.height * 1.08
@@ -283,7 +276,6 @@ struct PrismBackground: View {
                 .blur(radius: 28)
 
                 // ── Focal bloom ───────────────────────────────────────────────
-                // Bright halo where the "prism" splits the beam.
                 RadialGradient(
                     colors: [Color.white.opacity(0.18), Color.white.opacity(0.04), .clear],
                     center: UnitPoint(x: 0.5, y: 0.0),
@@ -292,7 +284,6 @@ struct PrismBackground: View {
                 )
 
                 // ── Vignette ──────────────────────────────────────────────────
-                // Darkens the extreme edges so content reads cleanly.
                 RadialGradient(
                     colors: [.clear, Color.black.opacity(0.55)],
                     center: .center,
@@ -301,5 +292,7 @@ struct PrismBackground: View {
                 )
             }
         }
+        // Rasterize once so subsequent parent recomputes don't redraw the canvas layers.
+        .drawingGroup()
     }
 }

@@ -8,12 +8,14 @@ struct PrismApp: App {
 
     @StateObject private var browserState = BrowserState()
     @StateObject private var bookmarkStore = BookmarkStore.shared
+    @StateObject private var settings = BrowserSettings.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
+                .environmentObject(settings)
         }
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
@@ -40,6 +42,10 @@ struct PrismApp: App {
                 }
                 .keyboardShortcut("b", modifiers: .command)
             }
+        }
+        .settings {
+            SettingsView()
+                .environmentObject(settings)
         }
     }
 }

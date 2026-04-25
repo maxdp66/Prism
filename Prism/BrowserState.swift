@@ -31,11 +31,16 @@ final class BrowserState: ObservableObject {
     private var newTabToken: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
+    // MARK: Settings
+
+    private let settings = BrowserSettings.shared
+
     // MARK: Init
 
     init() {
         setupConfiguration()
         listenForNewTabNotifications()
+        observeSettings()
 
         // Always start with at least one blank tab
         addNewTab(url: nil)
@@ -46,32 +51,81 @@ final class BrowserState: ObservableObject {
     private func setupConfiguration() {
         let config = WKWebViewConfiguration()
         config.allowsAirPlayForMediaPlayback = true
-        config.mediaTypesRequiringUserActionForPlayback = []
+        config.mediaTypesRequiringUserActionForPlayback = settings.autoplayEnabled ? [] : [.all]
 
-        // Preferences
+        // Preferences – controlled by settings
         let prefs = WKWebpagePreferences()
-        prefs.allowsContentJavaScript = true
+        prefs.allowsContentJavaScript = settings.javascriptEnabled
         config.defaultWebpagePreferences = prefs
 
         self.sharedConfiguration = config
 
-        // Load content blocker async
-        Task {
-            do {
-                let ruleList = try await ContentBlocker.shared.loadRuleList()
-                config.userContentController.add(ruleList)
-                isContentBlockerReady = true
-            } catch {
-                print("[Prism] ContentBlocker failed: \(error)")
-                isContentBlockerReady = true   // continue anyway
+        // Load content blocker async — only if enabled
+        if settings.contentBlockerEnabled {
+            Task {
+                do {
+                    let ruleList = try await ContentBlocker.shared.loadRuleList()
+                    config.userContentController.add(ruleList)
+                    isContentBlockerReady = true
+                } catch {
+                    print("[Prism] ContentBlocker failed: \(error)")
+                    isContentBlockerReady = true   // continue anyway
+                }
+            }
+        } else {
+            isContentBlockerReady = true  // not needed, but "ready"
+        }
+    }
+
+    /// Rebuild WKWebViewConfiguration when settings change.
+    private func rebuildConfiguration() {
+        let config = WKWebViewConfiguration()
+        config.allowsAirPlayForMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = settings.autoplayEnabled ? [] : [.all]
+
+        let prefs = WKWebpagePreferences()
+        prefs.allowsContentJavaScript = settings.javascriptEnabled
+        config.defaultWebpagePreferences = prefs
+
+        // Content blocker only if enabled
+        if settings.contentBlockerEnabled {
+            // Fire-and-forget: rules are async; if they fail we still continue
+            Task {
+                do {
+                    let ruleList = try await ContentBlocker.shared.loadRuleList()
+                    config.userContentController.add(ruleList)
+                } catch {
+                    print("[Prism] ContentBlocker reload failed: \(error)")
+                }
             }
         }
+
+        sharedConfiguration = config
+    }
+
+    /// Subscribe to settings changes and rebuild shared configuration on the fly.
+    private func observeSettings() {
+        settings.$javascriptEnabled
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.rebuildConfiguration() }
+            }
+            .store(in: &cancellables)
+
+        settings.contentBlockerEnabled
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.rebuildConfiguration() }
+            }
+            .store(in: &cancellables)
+
+        // Autoplay doesn't require config rebuild — new tabs read it from settings
+        // when they call decidePolicyFor navigationAction (handled per-tab).
+        // JavaScript changes require a new config to affect future tabs.
     }
 
     // MARK: - Tab Management
 
     func addNewTab(url: URL? = nil) {
-        let tab = BrowserTab(configuration: sharedConfiguration)
+        let tab = BrowserTab(configuration: sharedConfiguration, settings: settings)
         tabs.append(tab)
         activateTab(tab)
 

@@ -7,13 +7,19 @@ struct AddressBarView: View {
 
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
+    @EnvironmentObject private var settings: BrowserSettings
 
     @State private var editingText: String = ""
     @State private var isEditing: Bool = false
     @State private var isHovered: Bool = false
+    @State private var showPrivacyPopover = false
     @FocusState private var isFocused: Bool
 
     var activeTab: BrowserTab? { browserState.activeTab }
+
+    private var searchPlaceholder: String {
+        "Search \(settings.searchEngine.rawValue) or enter address"
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -25,7 +31,7 @@ struct AddressBarView: View {
                 if !isEditing {
                     displayLabel
                 }
-                TextField("Search or enter address", text: $editingText)
+                TextField(searchPlaceholder, text: $editingText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .focused($isFocused)
@@ -33,7 +39,7 @@ struct AddressBarView: View {
                     .onSubmit {
                         commit()
                     }
-                    .onChange(of: isFocused) { focused in
+                    .onChange(of: isFocused) { _, focused in
                         withAnimation(.easeInOut(duration: 0.15)) {
                             isEditing = focused
                         }
@@ -110,7 +116,7 @@ struct AddressBarView: View {
 
         Group {
             if urlString.isEmpty && !isLoading {
-                Text("Search or enter address")
+                Text(searchPlaceholder)
                     .foregroundColor(.secondary)
                     .font(.system(size: 13))
             } else {
@@ -146,7 +152,9 @@ struct AddressBarView: View {
     @ViewBuilder
     private var privacyShield: some View {
         let count = activeTab?.blockedItemsCount ?? 0
-        Button(action: {}) {
+        let isEnabled = browserState.isContentBlockerReady && settings.contentBlockerEnabled
+
+        Button(action: { showPrivacyPopover = true }) {
             HStack(spacing: 3) {
                 Image(systemName: "shield.fill")
                     .font(.system(size: 11))
@@ -160,6 +168,30 @@ struct AddressBarView: View {
         }
         .buttonStyle(.plain)
         .help("Privacy Shield – \(count) trackers blocked")
+        .popover(isPresented: $showPrivacyPopover, arrowEdge: .bottom) {
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "shield.fill")
+                        .foregroundColor(isEnabled ? .green : .secondary)
+                        .font(.system(size: 14))
+                    Text(isEnabled ? "Content Blocker Active" : "Content Blocker Inactive")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
+                }
+                Divider()
+                HStack {
+                    Text("Trackers blocked on this page")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(count)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(count > 0 ? .prismPurple : .secondary)
+                }
+            }
+            .padding(12)
+            .frame(width: 240)
+        }
     }
 
     @ViewBuilder

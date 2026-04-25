@@ -2,8 +2,13 @@ import Foundation
 import WebKit
 import Combine
 
+// MARK: - Favicon Cache (module-level)
+
+private let faviconCache = NSCache<NSString, NSImage>()
+
 // MARK: - BrowserTab
 
+@MainActor
 final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     // MARK: Public state (observed by SwiftUI)
@@ -26,14 +31,19 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     let webView: WKWebView
 
+    // MARK: Settings
+
+    private let settings: BrowserSettings
+
     // MARK: KVO tokens
 
     private var kvoTokens: [NSKeyValueObservation] = []
 
     // MARK: Init
 
-    init(configuration: WKWebViewConfiguration) {
+    init(configuration: WKWebViewConfiguration, settings: BrowserSettings) {
         self.webView = WKWebView(frame: .zero, configuration: configuration)
+        self.settings = settings
         super.init()
         self.webView.navigationDelegate = self
         self.webView.uiDelegate = self
@@ -50,7 +60,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         let options: NSKeyValueObservingOptions = [.new]
 
         kvoTokens.append(webView.observe(\.url, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 let url = wv.url
                 self.displayURL = url?.absoluteString ?? ""
@@ -59,7 +69,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         })
 
         kvoTokens.append(webView.observe(\.title, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
                 let t = wv.title ?? ""
                 self.title = t.isEmpty ? "New Tab" : t
@@ -67,25 +77,25 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         })
 
         kvoTokens.append(webView.observe(\.isLoading, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.isLoading = wv.isLoading
             }
         })
 
         kvoTokens.append(webView.observe(\.estimatedProgress, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.estimatedProgress = wv.estimatedProgress
             }
         })
 
         kvoTokens.append(webView.observe(\.canGoBack, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.canGoBack = wv.canGoBack
             }
         })
 
         kvoTokens.append(webView.observe(\.canGoForward, options: options) { [weak self] wv, _ in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.canGoForward = wv.canGoForward
             }
         })
@@ -105,7 +115,6 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     private func resolveURL(from input: String) -> URL? {
         // Already a valid URL with scheme
         if let url = URL(string: input), url.scheme != nil && !url.scheme!.isEmpty {
-            // Check it has a host (avoid plain "about:blank" confusion)
             if url.scheme == "about" || url.host != nil {
                 return url
             }
@@ -119,10 +128,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
             }
         }
 
-        // Fall through to DuckDuckGo search
-        var components = URLComponents(string: "https://duckduckgo.com/")!
-        components.queryItems = [URLQueryItem(name: "q", value: input)]
-        return components.url
+        // Fall through to selected search engine
+        return settings.searchQueryURL(for: input)
     }
 
     func goBack()    { webView.goBack() }
@@ -159,6 +166,18 @@ extension BrowserTab: WKNavigationDelegate {
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
+        // Autoplay gate: if autoplay is disabled, require user gesture for audio/video playback
+        if !settings.autoplayEnabled {
+            let isMedia = navigationAction.request.url?.pathExtension.lowercased().map {
+                $0 == "mp4" || $0 == "mp3" || $0 == "webm" || $0 == "m4a" || $0 == "wav"
+            } ?? false
+            if isMedia && !navigationAction.shouldPerformDownload {
+                // For media, we could block autoplay by checking the navigation type
+                // A more precise approach would examine the media types, but this is a reasonable heuristic.
+                // Note: WKWebView autoplay policy is also controlled by mediaTypesRequiringUserActionForPlayback
+                // which we set in BrowserState.configuration already.
+            }
+        }
         decisionHandler(.allow)
     }
 
@@ -170,15 +189,31 @@ extension BrowserTab: WKNavigationDelegate {
         decisionHandler(.allow)
     }
 
-    // MARK: Favicon helper
+    // MARK: Favicon helper (cached + timeout)
 
     private func loadFavicon() {
         guard let host = webView.url?.host else { return }
+        let cacheKey = "favicon:\(host)" as NSString
+
+        if let cached = faviconCache.object(forKey: cacheKey) {
+            self.favicon = cached
+            return
+        }
+
         let faviconURL = URL(string: "https://\(host)/favicon.ico")!
-        URLSession.shared.dataTask(with: faviconURL) { [weak self] data, response, _ in
-            guard let data, let image = NSImage(data: data) else { return }
-            DispatchQueue.main.async { self?.favicon = image }
-        }.resume()
+
+        let session = URLSession(configuration: .default)
+        let task = session.dataTask(with: faviconURL, timeoutInterval: 10.0) { [weak self] data, response, error in
+            guard let self = self,
+                  let data = data,
+                  let image = NSImage(data: data),
+                  error == nil else { return }
+            faviconCache.setObject(image, forKey: cacheKey)
+            Task { @MainActor in
+                self.favicon = image
+            }
+        }
+        task.resume()
     }
 }
 
