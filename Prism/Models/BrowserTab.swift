@@ -168,9 +168,8 @@ extension BrowserTab: WKNavigationDelegate {
     ) {
         // Autoplay gate: if autoplay is disabled, require user gesture for audio/video playback
         if !settings.autoplayEnabled {
-            let isMedia = navigationAction.request.url?.pathExtension.lowercased().map {
-                $0 == "mp4" || $0 == "mp3" || $0 == "webm" || $0 == "m4a" || $0 == "wav"
-            } ?? false
+            let mediaExtensions = ["mp4", "mp3", "webm", "m4a", "wav"]
+            let isMedia = mediaExtensions.contains(navigationAction.request.url?.pathExtension.lowercased() ?? "")
             if isMedia && !navigationAction.shouldPerformDownload {
                 // For media, we could block autoplay by checking the navigation type
                 // A more precise approach would examine the media types, but this is a reasonable heuristic.
@@ -202,8 +201,10 @@ extension BrowserTab: WKNavigationDelegate {
 
         let faviconURL = URL(string: "https://\(host)/favicon.ico")!
 
-        let session = URLSession(configuration: .default)
-        let task = session.dataTask(with: faviconURL, timeoutInterval: 10.0) { [weak self] data, response, error in
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10.0
+        let session = URLSession(configuration: config)
+        let task = session.dataTask(with: faviconURL) { [weak self] data, response, error in
             guard let self = self,
                   let data = data,
                   let image = NSImage(data: data),

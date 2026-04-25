@@ -39,7 +39,7 @@ struct AddressBarView: View {
                     .onSubmit {
                         commit()
                     }
-                    .onChange(of: isFocused) { _, focused in
+                    .onChange(of: isFocused) { focused in
                         withAnimation(.easeInOut(duration: 0.15)) {
                             isEditing = focused
                         }
