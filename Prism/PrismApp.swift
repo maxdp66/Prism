@@ -23,6 +23,8 @@ struct PrismApp: App {
                         window.titleVisibility = .hidden
                         window.titlebarSeparatorStyle = .none
                         window.isMovableByWindowBackground = true
+
+                        // Traffic lights are now properly positioned with fullSizeContentView
                     }
                 }
         }
@@ -107,6 +109,8 @@ struct PrismApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settings)
+                .preferredColorScheme(settings.appearanceMode.colorScheme)
+                .animation(.easeInOut(duration: 0.3), value: settings.appearanceMode)
         }
     }
 }

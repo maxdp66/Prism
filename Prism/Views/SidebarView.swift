@@ -45,7 +45,7 @@ struct SidebarView: View {
                 } label: {
                     Text(isEditing ? "Done" : "Edit")
                         .font(.system(size: 11))
-                        .foregroundColor(.prismPurple)
+                        .foregroundColor(Color(red: 139/255, green: 92/255, blue: 246/255))
                 }
                 .buttonStyle(.plain)
 
@@ -54,7 +54,7 @@ struct SidebarView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 12))
-                        .foregroundColor(.prismPurple)
+                        .foregroundColor(Color(red: 139/255, green: 92/255, blue: 246/255))
                 }
                 .buttonStyle(.plain)
                 .help("Add Bookmark")
@@ -155,11 +155,11 @@ struct BookmarkRowView: View {
                 // Favicon placeholder / icon
                 ZStack {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.prismPurple.opacity(0.15))
+                        .fill(Color(red: 139/255, green: 92/255, blue: 246/255).opacity(0.15))
                         .frame(width: 22, height: 22)
                     Text(String(bookmark.title.prefix(1)).uppercased())
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.prismPurple)
+                        .foregroundColor(Color(red: 139/255, green: 92/255, blue: 246/255))
                 }
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -229,7 +229,7 @@ struct AddBookmarkSheet: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(url.isEmpty)
                 .buttonStyle(.borderedProminent)
-                .tint(.prismPurple)
+                .tint(Color(red: 139/255, green: 92/255, blue: 246/255))
             }
         }
         .padding(24)

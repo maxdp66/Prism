@@ -59,6 +59,16 @@ struct SettingsView: View {
             Section("Media & Playback") {
                 Toggle("Autoplay", isOn: $settings.autoplayEnabled)
             }
+
+            // MARK: Appearance
+            Section("Appearance") {
+                Picker("Color Scheme", selection: $settings.appearanceMode) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
         }
         .formStyle(.grouped)
         .padding(20)

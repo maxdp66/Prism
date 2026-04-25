@@ -1,6 +1,7 @@
 import Foundation
 import WebKit
 import Combine
+import SwiftUI
 
 // MARK: - Favicon Cache (module-level)
 
@@ -9,7 +10,7 @@ private let faviconCache = NSCache<NSString, NSImage>()
 // MARK: - BrowserTab
 
 @MainActor
-final class BrowserTab: NSObject, ObservableObject, Identifiable {
+final class BrowserTab: NSObject, ObservableObject, Identifiable, WKScriptMessageHandler {
 
     // MARK: Public state (observed by SwiftUI)
 
@@ -22,6 +23,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     @Published var isSecure: Bool = false
     @Published var blockedItemsCount: Int = 0
     @Published var favicon: NSImage? = nil
+    @Published var themeColor: Color = .clear
 
     // MARK: Identity
 
@@ -63,9 +65,37 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         webView.configuration.userContentController.addUserScript(script)
 
+        // Theme color extraction script
+        let themeColorScript = """
+        const getThemeColor = () => {
+            const meta = document.querySelector('meta[name="theme-color"]');
+            return meta ? meta.getAttribute('content') : null;
+        };
+
+        // Send initial color
+        window.webkit.messageHandlers.themeColorHandler.postMessage(getThemeColor());
+
+        // Observe changes
+        const observer = new MutationObserver(() => {
+            window.webkit.messageHandlers.themeColorHandler.postMessage(getThemeColor());
+        });
+        observer.observe(document.head, { childList: true, subtree: true, attributes: true });
+        """
+        let themeScript = WKUserScript(source: themeColorScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        webView.configuration.userContentController.addUserScript(themeScript)
+        webView.configuration.userContentController.add(self, name: "themeColorHandler")
+
         self.webView.navigationDelegate = self
         self.webView.uiDelegate = self
         setupKVO()
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "themeColorHandler", let colorString = message.body as? String {
+            DispatchQueue.main.async {
+                self.themeColor = Color(hex: colorString) ?? .clear
+            }
+        }
     }
 
     deinit {
@@ -109,6 +139,18 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         kvoTokens.append(webView.observe(\.canGoForward, options: options) { [weak self] wv, _ in
             DispatchQueue.main.async { self?.canGoForward = wv.canGoForward }
         })
+
+        // Theme color fallback using underPageBackgroundColor
+        if #available(macOS 12.0, *) {
+            kvoTokens.append(webView.observe(\.underPageBackgroundColor, options: options) { [weak self] wv, _ in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    if self.themeColor == .clear, let bgColor = wv.underPageBackgroundColor {
+                        self.themeColor = Color(nsColor: bgColor)
+                    }
+                }
+            })
+        }
     }
 
     // MARK: - Navigation
@@ -301,6 +343,42 @@ extension BrowserTab: WKNavigationDelegate {
             self?.favicon = image
         }
     }
+}
+
+// MARK: - Color Extension
+
+extension Color {
+    init?(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            return nil
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+// MARK: - Color extension
+
+extension Color {
+    static let prismPurple = Color(red: 139/255, green: 92/255, blue: 246/255)
+    static let prismBlue   = Color(red: 59/255,  green: 130/255, blue: 246/255)
+    static let prismTeal   = Color(red: 20/255,  green: 184/255, blue: 166/255)
 }
 
 // MARK: - FaviconLoader (module-level singleton)

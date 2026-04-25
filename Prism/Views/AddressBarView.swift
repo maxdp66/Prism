@@ -105,7 +105,7 @@ struct AddressBarView: View {
             bookmarkButton
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.vertical, 2)
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -115,7 +115,7 @@ struct AddressBarView: View {
                     .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
             }
         )
-        .frame(height: 28)
+        .frame(height: 22)
         .onHover { isHovered = $0 }
         .onTapGesture {
             isFocused = true

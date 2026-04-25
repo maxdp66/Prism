@@ -47,25 +47,20 @@ var body: some View {
             }
             .padding(.horizontal, 12)
         }
-        .frame(height: 24)
+        .frame(height: 20)
         .background(
             ZStack {
                 if isActive {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color.white.opacity(0.1))
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
-
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.white.opacity(0.15))
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+                        .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
                 } else if isHovered {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.primary.opacity(0.05))
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.gray.opacity(0.1))
                 } else {
-                    Color.clear
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.clear)
                 }
             }
         )

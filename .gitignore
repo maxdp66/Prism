@@ -28,3 +28,15 @@ build/
 .build/
 .swiftpm/
 Package.resolved
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI Tools
+.kilo/
+.claude/
+.cursor/
+PRISM_SAFARI_UI_ANALYSIS.md

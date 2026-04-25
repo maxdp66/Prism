@@ -14,8 +14,63 @@ struct ContentView: View {
     @State private var suggestionsHeight: CGFloat = 0
     @State private var selectedSuggestionIndex: Int? = nil
 
-    var body: some View {
-        ZStack(alignment: .top) {
+    private var addressBarSection: some View {
+        ZStack {
+            // Base material background
+            VisualEffectView(material: .titlebar, blendingMode: .behindWindow)
+
+            // Theme color overlay
+            if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
+                activeTab.themeColor.opacity(0.6)
+            } else {
+                Color.gray.opacity(0.05)
+            }
+
+            // Address bar content with traffic light spacing
+            HStack(spacing: 12) {
+                Spacer().frame(width: 80) // Gap for floating traffic lights
+
+                AddressBarSection(
+                    barFrame: $barFrame,
+                    suggestions: $suggestions,
+                    suggestionsHeight: $suggestionsHeight,
+                    selectedSuggestionIndex: $selectedSuggestionIndex
+                )
+                .environmentObject(browserState)
+                .environmentObject(bookmarkStore)
+                .environmentObject(settings)
+                .coordinateSpace(name: "browserWindow")
+
+                Spacer().frame(width: 80) // Balance
+            }
+            .padding(.vertical, 8)
+        }
+        .frame(height: 52)
+    }
+
+    private var tabBarSection: some View {
+        ZStack {
+            // Base material background
+            VisualEffectView(material: .contentBackground, blendingMode: .behindWindow)
+                .opacity(0.8)
+
+            // Theme color overlay for website matching
+            if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
+                activeTab.themeColor.opacity(0.7).brightness(-0.05)
+            } else {
+                Color.gray.opacity(0.03)
+            }
+
+            // Tab bar content
+            TabBarSection()
+                .environmentObject(browserState)
+                .environmentObject(bookmarkStore)
+        }
+        .frame(height: 36)
+    }
+
+private var webContentSection: some View {
+        ZStack {
             HSplitView {
                 if browserState.sidebarVisible {
                     SidebarView()
@@ -30,8 +85,10 @@ struct ContentView: View {
                         NewTabView(clearSuggestions: { suggestions = [] })
                             .environmentObject(browserState)
                             .environmentObject(settings)
+                            .id(tab.id)
                     } else {
                         WebContentContainer(webView: tab.webView)
+                            .id(tab.id)
                     }
                 } else {
                     NewTabView(clearSuggestions: { suggestions = [] })
@@ -40,47 +97,40 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.clear)
-            .zIndex(0)
 
             if !suggestions.isEmpty {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { suggestions = [] }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(1)
             }
 
-            VStack(spacing: 0) {
-                UnifiedToolbar(
-                    barFrame: $barFrame,
-                    suggestions: $suggestions,
-                    suggestionsHeight: $suggestionsHeight,
-                    selectedSuggestionIndex: $selectedSuggestionIndex
-                )
-                .environmentObject(browserState)
-                .environmentObject(bookmarkStore)
-                .environmentObject(settings)
-                .coordinateSpace(name: "browserWindow")
-
-                // Settings-changed reload banner
-                if browserState.settingsChangedNeedsReload {
+            // Settings-changed reload banner
+            if browserState.settingsChangedNeedsReload {
+                VStack {
                     SettingsReloadBanner {
                         browserState.reloadAllTabs()
                     } onDismiss: {
                         browserState.settingsChangedNeedsReload = false
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
+                    Spacer()
                 }
+            }
 
-                // Find in page bar
-                if let tab = browserState.activeTab, tab.isFindBarVisible {
+            // Find in page bar
+            if let tab = browserState.activeTab, tab.isFindBarVisible {
+                VStack {
+                    Spacer()
                     FindBar(tab: tab)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .zIndex(1)
-
+        }
+    }
+    
+    private var suggestionsOverlay: some View {
+        Group {
             if !suggestions.isEmpty {
                 SuggestionsOverlay(
                     suggestions: suggestions,
@@ -104,6 +154,18 @@ struct ContentView: View {
                 }
             }
         }
+    }
+    var body: some View {
+        ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                addressBarSection
+                Divider().opacity(0.1) // Faint line between sections
+                tabBarSection
+                webContentSection
+            }
+            suggestionsOverlay
+        }
+        .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 900, minHeight: 600)
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.settingsChangedNeedsReload)
@@ -112,12 +174,34 @@ struct ContentView: View {
             suggestions = []
             selectedSuggestionIndex = nil
         }
+        .preferredColorScheme(settings.appearanceMode.colorScheme)
+        .animation(.easeInOut(duration: 0.3), value: settings.appearanceMode)
     }
 }
 
-// MARK: - UnifiedToolbar
+// MARK: - VisualEffectView
 
-struct UnifiedToolbar: View {
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - AddressBarSection
+
+struct AddressBarSection: View {
 
     @Binding var barFrame: CGRect
     @Binding var suggestions: [Suggestion]
@@ -127,29 +211,9 @@ struct UnifiedToolbar: View {
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
 
-    @State private var toolbarWidth: CGFloat = 0
-
-    private var tabWidth: CGFloat {
-        let padding: CGFloat = 16 + 8 + 76 + 10
-        let actionButtonsWidth: CGFloat = 100 + 100
-        let addressBarWidth: CGFloat = 600
-        let availableWidth = toolbarWidth - padding - actionButtonsWidth - addressBarWidth
-        let tabCount = max(1, CGFloat(browserState.tabs.count))
-        let dynamicWidth = availableWidth / tabCount
-        return max(100, min(220, dynamicWidth))
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            GeometryReader { geo in
-                Color.clear
-                    .preference(key: WidthPreferenceKey.self, value: geo.size.width)
-                    .onPreferenceChange(WidthPreferenceKey.self) { toolbarWidth = $0 }
-            }
-            .frame(height: 0)
-
             HStack(spacing: 12) {
-                Spacer().frame(width: 76)
+                Spacer().frame(width: 80)
 
                 HStack(spacing: 6) {
                     ToolbarButton(
@@ -209,78 +273,91 @@ struct UnifiedToolbar: View {
 
                 Spacer().frame(width: 10)
             }
-            .frame(height: 38)
-            .background(Color.clear)
+            .frame(height: 22)
+    }
+}
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
-                        let showSeparator = index > 0 && !browserState.tabs.isEmpty
-                        let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
+// MARK: - TabBarSection
 
-                        if showSeparator {
-                            TabSeparatorView(
-                                leftTab: leftTab,
-                                rightTab: tab,
-                                browserState: browserState
-                            )
-                        }
+struct TabBarSection: View {
 
-                        let pillWidth = max(120.0, min(220.0, toolbarWidth / CGFloat(max(1, browserState.tabs.count))))
-                        
-                        TabPillView(tab: tab)
-                            .environmentObject(browserState)
-                            .frame(width: pillWidth)
-                            .id(tab.id)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
-                    }
+    @EnvironmentObject var browserState: BrowserState
+    @EnvironmentObject var bookmarkStore: BookmarkStore
 
-                    Button {
-                        browserState.addNewTab(url: nil)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.secondary)
-                            .frame(width: 24, height: 24)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5)
-                                    .fill(Color.primary.opacity(0.05))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .help("New Tab (⌘T)")
-                    .padding(.leading, 2)
+    @State private var toolbarWidth: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            Color.clear
+                .preference(key: WidthPreferenceKey.self, value: geo.size.width)
+                .onPreferenceChange(WidthPreferenceKey.self) { toolbarWidth = $0 }
+        }
+        .frame(height: 0)
+
+        HStack(spacing: 1) { // Safari uses 1px separator
+            ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
+                let showSeparator = index > 0 && !browserState.tabs.isEmpty
+                let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
+
+                if showSeparator {
+                    TabSeparatorView(
+                        leftTab: leftTab,
+                        rightTab: tab,
+                        browserState: browserState
+                    )
                 }
-                .padding(.horizontal, 16)
-                .frame(minWidth: toolbarWidth, alignment: .leading)
-            }
-            .frame(height: 34)
-            .scrollContentBackground(.hidden)
-            .onChange(of: browserState.activeTabId) { _, _ in
-                withAnimation { }
+
+                TabPillView(tab: tab)
+                    .environmentObject(browserState)
+                    .frame(minWidth: 100, maxWidth: 240) // Size-aware constraint
+                    .fixedSize(horizontal: false, vertical: true)
+                    .id(tab.id)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
             }
 
-            Rectangle()
-                .fill(Color.primary.opacity(0.1))
-                .frame(height: 0.5)
+            Button {
+                browserState.addNewTab(url: nil)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("New Tab (⌘T)")
 
-            if let tab = browserState.activeTab, tab.isLoading {
-                GeometryReader { geo in
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.prismPurple, Color.blue],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * tab.estimatedProgress, height: 2)
-                        .animation(.easeInOut(duration: 0.2), value: tab.estimatedProgress)
-                }
-                .frame(height: 2)
+            // Keep tabs pinned to the left until the bar is full
+            if browserState.tabs.count < 8 { // maxTabsBeforeSpreading
+                Spacer()
             }
         }
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(height: 34)
+        .scrollContentBackground(.hidden)
+        .onChange(of: browserState.activeTabId) { _, _ in
+            withAnimation { }
+        }
+
+        if let tab = browserState.activeTab, tab.isLoading {
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 139/255, green: 92/255, blue: 246/255), Color.blue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geo.size.width * tab.estimatedProgress, height: 2)
+                    .animation(.easeInOut(duration: 0.2), value: tab.estimatedProgress)
+            }
+            .frame(height: 2)
+        }
     }
 }
 
@@ -307,10 +384,10 @@ struct ToolbarButton: View {
 
         Button(action: action) {
             Image(systemName: symbolName)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(enabled ? .primary : .secondary)
                 .opacity(enabled ? 0.7 : 0.4)
-                .frame(width: 28, height: 28)
+                .frame(width: 20, height: 20)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
                         .fill(isHovered && enabled
@@ -504,10 +581,4 @@ struct SettingsReloadBanner: View {
     }
 }
 
-// MARK: - Color extension
 
-extension Color {
-    static let prismPurple = Color(red: 139/255, green: 92/255, blue: 246/255)
-    static let prismBlue   = Color(red: 59/255,  green: 130/255, blue: 246/255)
-    static let prismTeal   = Color(red: 20/255,  green: 184/255, blue: 166/255)
-}

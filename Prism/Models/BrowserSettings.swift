@@ -16,9 +16,9 @@ enum SearchEngine: String, CaseIterable, Identifiable, Codable, Sendable {
     var baseURL: String {
         switch self {
         case .duckDuckGo: "https://duckduckgo.com/"
-        case .google:     "https://www.google.com/"
+        case .google:     "https://www.google.com/search"
         case .bing:       "https://www.bing.com/"
-        case .brave:      "https://search.brave.com/"
+        case .brave:      "https://search.brave.com/search"
         case .ecosia:     "https://www.ecosia.org/"
         case .searxng:    ""
         }
@@ -94,6 +94,24 @@ enum AutocompleteProvider: String, CaseIterable, Identifiable, Codable, Sendable
     }
 }
 
+// MARK: - Appearance Mode
+
+enum AppearanceMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case system = "System"
+    case dark = "Dark"
+    case light = "Light"
+
+    var id: String { rawValue }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .dark: return .dark
+        case .light: return .light
+        }
+    }
+}
+
 // MARK: - BrowserSettings
 
 @MainActor
@@ -112,6 +130,7 @@ final class BrowserSettings: ObservableObject {
         static let contentBlockerEnabled = "contentBlockerEnabled"
         static let autoplayEnabled    = "autoplayEnabled"
         static let homepageURL        = "homepageURL"
+        static let appearanceMode     = "appearanceMode"
     }
 
     // MARK: - Published properties backed by @AppStorage
@@ -124,6 +143,7 @@ final class BrowserSettings: ObservableObject {
     @AppStorage(Keys.contentBlockerEnabled) var contentBlockerEnabled: Bool = true
     @AppStorage(Keys.autoplayEnabled)    var autoplayEnabled: Bool = false
     @AppStorage(Keys.homepageURL)        var homepageURL: String = ""
+    @AppStorage(Keys.appearanceMode)     var appearanceMode: AppearanceMode = .system
 
     // MARK: - Helpers
 
