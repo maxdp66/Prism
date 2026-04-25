@@ -128,64 +128,7 @@ struct UnifiedToolbar: View {
             }
             .frame(height: 0)
 
-            HStack(spacing: 0) {
-                Spacer().frame(width: 76)
-
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 0) {
-                            ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
-                                let showSeparator = index > 0 && !browserState.tabs.isEmpty
-                                let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
-
-                                if showSeparator {
-                                    TabSeparatorView(
-                                        leftTab: leftTab,
-                                        rightTab: tab,
-                                        browserState: browserState
-                                    )
-                                }
-
-                                TabPillView(tab: tab)
-                                    .environmentObject(browserState)
-                                    .frame(width: tabWidth)
-                                    .id(tab.id)
-                                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
-                            }
-
-                            Button {
-                                browserState.addNewTab(url: nil)
-                            } label: {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 24, height: 24)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .fill(Color.primary.opacity(0.05))
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .help("New Tab (⌘T)")
-                            .padding(.leading, 2)
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .scrollContentBackground(.hidden)
-                    .onChange(of: browserState.activeTabId) { id in
-                        if let id {
-                            withAnimation { proxy.scrollTo(id, anchor: .center) }
-                        }
-                    }
-                }
-
-                Spacer(minLength: 4)
-            }
-            .frame(height: 34)
-            .background(Color.clear)
-
-            HStack(spacing: 0) {
+            HStack(spacing: 12) {
                 Spacer().frame(width: 76)
 
                 HStack(spacing: 6) {
@@ -229,7 +172,7 @@ struct UnifiedToolbar: View {
                 )
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
-                .frame(maxWidth: 600)
+                .frame(width: 400)
 
                 Spacer()
 
@@ -248,11 +191,60 @@ struct UnifiedToolbar: View {
             }
             .frame(height: 38)
             .background(Color.clear)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.primary.opacity(0.05))
-                    .frame(height: 0.5)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
+                        let showSeparator = index > 0 && !browserState.tabs.isEmpty
+                        let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
+
+                        if showSeparator {
+                            TabSeparatorView(
+                                leftTab: leftTab,
+                                rightTab: tab,
+                                browserState: browserState
+                            )
+                        }
+
+                        let pillWidth = max(120.0, min(200.0, toolbarWidth / CGFloat(max(1, browserState.tabs.count))))
+                        
+                        TabPillView(tab: tab)
+                            .environmentObject(browserState)
+                            .frame(width: pillWidth)
+                            .id(tab.id)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
+                    }
+
+                    Button {
+                        browserState.addNewTab(url: nil)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 24, height: 24)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(Color.primary.opacity(0.05))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Tab (⌘T)")
+                    .padding(.leading, 2)
+                }
+                .padding(.horizontal, 16)
+                .frame(minWidth: toolbarWidth, alignment: .leading)
             }
+            .frame(height: 34)
+            .scrollContentBackground(.hidden)
+            .onChange(of: browserState.activeTabId) { id in
+                if let id {
+                    withAnimation { }
+                }
+            }
+
+            Rectangle()
+                .fill(Color.primary.opacity(0.1))
+                .frame(height: 0.5)
 
             if let tab = browserState.activeTab, tab.isLoading {
                 GeometryReader { geo in

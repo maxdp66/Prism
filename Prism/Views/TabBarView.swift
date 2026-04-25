@@ -15,32 +15,38 @@ struct TabPillView: View {
     }
 
 var body: some View {
-        HStack(spacing: 0) {
-            ZStack {
-                if isHovered || isActive {
-                    Button {
-                        browserState.closeTab(tab)
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.primary.opacity(0.6))
+        ZStack {
+            HStack(spacing: 0) {
+                ZStack {
+                    if isHovered || isActive {
+                        Button {
+                            browserState.closeTab(tab)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.primary.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 16, height: 16)
+                        .background(Color.primary.opacity(0.1))
+                        .clipShape(Circle())
+                    } else {
+                        leadingIcon
                     }
-                    .buttonStyle(.plain)
-                    .frame(width: 16, height: 16)
-                    .background(Color.primary.opacity(0.1))
-                    .clipShape(Circle())
-                } else {
-                    leadingIcon
+                }
+                .frame(width: 16, height: 16)
+
+                HStack(spacing: 0) {
+                    Spacer()
+                    Text(tab.title.isEmpty ? "New Tab" : tab.title)
+                        .font(.system(size: 11, weight: isActive ? .medium : .regular))
+                        .foregroundColor(isActive ? .primary : .secondary)
+                        .lineLimit(1)
+                    Spacer()
                 }
             }
-            .frame(width: 16, height: 16)
-
-            Text(tab.title.isEmpty ? "New Tab" : tab.title)
-                .font(.system(size: 11, weight: isActive ? .medium : .regular))
-                .foregroundColor(isActive ? .primary : .secondary)
-                .lineLimit(1)
+            .padding(.horizontal, 12)
         }
-        .padding(.horizontal, 12)
         .frame(height: 24)
         .background(
             ZStack {
@@ -58,6 +64,8 @@ var body: some View {
                 } else if isHovered {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(Color.primary.opacity(0.05))
+                } else {
+                    Color.clear
                 }
             }
         )
