@@ -32,7 +32,7 @@ final class BrowserState: ObservableObject {
 
     // MARK: Notification token
 
-    private var newTabToken: NSObjectProtocol?
+    private nonisolated(unsafe) var newTabToken: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Settings

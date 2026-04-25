@@ -23,8 +23,9 @@ struct PrismApp: App {
                         window.titleVisibility = .hidden
                         window.titlebarSeparatorStyle = .none
                         window.isMovableByWindowBackground = true
-
-                        // Traffic lights are now properly positioned with fullSizeContentView
+                        window.standardWindowButton(.closeButton)?.isHidden = false
+                        window.standardWindowButton(.miniaturizeButton)?.isHidden = false
+                        window.standardWindowButton(.zoomButton)?.isHidden = false
                     }
                 }
         }
@@ -115,6 +116,26 @@ struct PrismApp: App {
     }
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {}
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.windows.forEach { window in
+            configureWindow(window)
+        }
+    }
+
+    func application(_ application: NSApplication, didCreateWindow window: NSWindow) {
+        configureWindow(window)
+    }
+
+    private func configureWindow(_ window: NSWindow) {
+        window.styleMask.insert(.fullSizeContentView)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.titlebarSeparatorStyle = .none
+        window.isMovableByWindowBackground = true
+        window.standardWindowButton(.closeButton)?.isHidden = false
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = false
+        window.standardWindowButton(.zoomButton)?.isHidden = false
+    }
 }

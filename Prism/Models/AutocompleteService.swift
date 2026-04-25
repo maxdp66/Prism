@@ -34,6 +34,7 @@ enum SuggestionType: String, CaseIterable {
 
 // MARK: - AutocompleteService
 
+@MainActor
 final class AutocompleteService {
 
     static let shared = AutocompleteService()

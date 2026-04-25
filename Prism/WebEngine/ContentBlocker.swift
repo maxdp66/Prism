@@ -3,6 +3,7 @@ import WebKit
 
 // MARK: - ContentBlocker
 
+@MainActor
 final class ContentBlocker {
 
     static let shared = ContentBlocker()

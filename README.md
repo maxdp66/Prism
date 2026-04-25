@@ -9,7 +9,7 @@
 A refined, privacy-focused web browser built for those who value both elegance and autonomy.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: macOS](https://img.shields.io/badge/Platform-macOS%2011.0%2B-green)]()
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS%2015.0%2B-green)]()
 [![Built with Swift](https://img.shields.io/badge/Built%20with-SwiftUI-orange)]()
 
 <br/>
@@ -95,6 +95,8 @@ Visual indicators show active protection status at a glance, so you always know 
 - Metal-accelerated rendering
 - Full Dark Mode support
 - Adaptive window sizing
+- Dynamic theme color extraction from web pages (macOS 15+)
+- Premium header vibrancy for browser chrome
 
 ---
 
@@ -102,8 +104,8 @@ Visual indicators show active protection status at a glance, so you always know 
 
 ### System Requirements
 
-- **macOS** 14.0 (Sonoma) or later
-- **Xcode** 14.0+ (for development only)
+- **macOS** 15.0 (Sequoia) or later
+- **Xcode** 16.0+ (for development only)
 
 ### Option A: Download Binary (Recommended)
 

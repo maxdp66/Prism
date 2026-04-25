@@ -14,59 +14,43 @@ struct ContentView: View {
     @State private var suggestionsHeight: CGFloat = 0
     @State private var selectedSuggestionIndex: Int? = nil
 
-    private var addressBarSection: some View {
-        ZStack {
-            VisualEffectView(material: .titlebar, blendingMode: .behindWindow)
+    private var immersiveHeader: some View {
+        ZStack(alignment: .top) {
+            VisualEffectView(material: .menu, blendingMode: .behindWindow)
+                .accessibilityHidden(true)
 
             if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
                 activeTab.themeColor
-                    .opacity(0.2)
-                    .blendMode(.multiply)
-            } else {
-                Color.primary.opacity(0.03)
-                    .blendMode(.multiply)
+                    .opacity(0.6)
             }
 
-            HStack(spacing: 12) {
-                Spacer().frame(width: 80)
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    AddressBarSection(
+                        barFrame: $barFrame,
+                        suggestions: $suggestions,
+                        suggestionsHeight: $suggestionsHeight,
+                        selectedSuggestionIndex: $selectedSuggestionIndex
+                    )
+                    .environmentObject(browserState)
+                    .environmentObject(bookmarkStore)
+                    .environmentObject(settings)
+                    .coordinateSpace(name: "browserWindow")
+                    .padding(.leading, 80)
+                }
+                .padding(.vertical, 8)
+                .frame(height: 52)
 
-                AddressBarSection(
-                    barFrame: $barFrame,
-                    suggestions: $suggestions,
-                    suggestionsHeight: $suggestionsHeight,
-                    selectedSuggestionIndex: $selectedSuggestionIndex
-                )
-                .environmentObject(browserState)
-                .environmentObject(bookmarkStore)
-                .environmentObject(settings)
-                .coordinateSpace(name: "browserWindow")
+                Divider()
+                    .opacity(0.1)
 
-                Spacer().frame(width: 80)
+                TabBarSection()
+                    .environmentObject(browserState)
+                    .environmentObject(bookmarkStore)
+                    .frame(height: 36)
             }
-            .padding(.vertical, 8)
         }
-        .frame(height: 52)
-    }
-
-    private var tabBarSection: some View {
-        ZStack {
-            VisualEffectView(material: .contentBackground, blendingMode: .behindWindow)
-                .opacity(0.8)
-
-            if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
-                activeTab.themeColor
-                    .opacity(0.15)
-                    .blendMode(.multiply)
-            } else {
-                Color.primary.opacity(0.02)
-                    .blendMode(.multiply)
-            }
-
-            TabBarSection()
-                .environmentObject(browserState)
-                .environmentObject(bookmarkStore)
-        }
-        .frame(height: 36)
+        .frame(height: 88)
     }
 
     private var webContentSection: some View {
@@ -157,8 +141,7 @@ struct ContentView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                addressBarSection
-                tabBarSection
+                immersiveHeader
                 webContentSection
             }
             suggestionsOverlay
@@ -167,7 +150,7 @@ struct ContentView: View {
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.settingsChangedNeedsReload)
         .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.activeTab?.isFindBarVisible)
-        .onChange(of: browserState.activeTabId) { _, _ in
+        .onChange(of: browserState.activeTabId) {
             suggestions = []
             selectedSuggestionIndex = nil
         }
@@ -187,6 +170,7 @@ struct VisualEffectView: NSViewRepresentable {
         view.material = material
         view.blendingMode = blendingMode
         view.state = .active
+        view.appearance = NSAppearance(named: .vibrantDark)
         return view
     }
 
@@ -210,8 +194,6 @@ struct AddressBarSection: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Spacer().frame(width: 80)
-
             HStack(spacing: 6) {
                 ToolbarButton(
                     symbolName: "chevron.left",
@@ -241,7 +223,7 @@ struct AddressBarSection: View {
                     }
                 }
             }
-            .frame(minWidth: 100, alignment: .leading)
+            .frame(minWidth: 80, alignment: .leading)
 
             Spacer()
 
@@ -253,7 +235,7 @@ struct AddressBarSection: View {
             )
             .environmentObject(browserState)
             .environmentObject(bookmarkStore)
-            .frame(width: 400)
+            .frame(maxWidth: 450)
 
             Spacer()
 
@@ -266,9 +248,7 @@ struct AddressBarSection: View {
                     browserState.toggleSidebar()
                 }
             }
-            .frame(minWidth: 100, alignment: .trailing)
-
-            Spacer().frame(width: 10)
+            .frame(minWidth: 40, alignment: .trailing)
         }
         .frame(height: 22)
     }
@@ -281,17 +261,10 @@ struct TabBarSection: View {
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
 
-    @State private var toolbarWidth: CGFloat = 0
-
     var body: some View {
-        GeometryReader { geo in
-            Color.clear
-                .preference(key: WidthPreferenceKey.self, value: geo.size.width)
-                .onPreferenceChange(WidthPreferenceKey.self) { toolbarWidth = $0 }
-        }
-        .frame(height: 0)
-
         HStack(spacing: 4) {
+            Spacer()
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 1) {
                     ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
@@ -308,12 +281,13 @@ struct TabBarSection: View {
 
                         TabPillView(tab: tab)
                             .environmentObject(browserState)
-                            .frame(minWidth: 100, maxWidth: 200)
+                            .frame(minWidth: 100, maxWidth: 250)
                             .fixedSize(horizontal: false, vertical: true)
                             .id(tab.id)
                             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
                     }
                 }
+                .padding(.horizontal, 8)
             }
             .padding(.vertical, 4)
 
@@ -331,23 +305,14 @@ struct TabBarSection: View {
             }
             .buttonStyle(.plain)
             .help("New Tab (⌘T)")
+            .padding(.trailing, 8)
 
-            if browserState.tabs.count < 8 {
-                Spacer()
-            }
+            Spacer()
         }
-        .padding(.horizontal, 8)
         .frame(height: 34)
-        .onChange(of: browserState.activeTabId) { _, _ in
+        .onChange(of: browserState.activeTabId) {
             withAnimation { }
         }
-    }
-}
-
-private struct WidthPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
@@ -459,8 +424,8 @@ struct FindBar: View {
                 .font(.system(size: 13))
                 .focused($isFocused)
                 .onSubmit { tab.findInPage(tab.findQuery, forward: true) }
-                .onChange(of: tab.findQuery) { _, query in
-                    tab.findInPage(query, forward: true)
+                .onChange(of: tab.findQuery) {
+                    tab.findInPage(tab.findQuery, forward: true)
                 }
 
             if tab.findMatchCount == 0 && !tab.findQuery.isEmpty {
