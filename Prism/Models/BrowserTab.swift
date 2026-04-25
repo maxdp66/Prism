@@ -123,7 +123,6 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
             if grabFocus {
                 Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 50_000_000)
                     guard self.webView.window != nil else { return }
                     self.webView.window?.makeFirstResponder(self.webView)
                 }
