@@ -21,6 +21,7 @@
 		B100000100000000000000AB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000AB /* SettingsView.swift */; };
 		B100000100000000000000BA /* ContentBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BA /* ContentBlocker.swift */; };
 		B100000100000000000000BB /* AutocompleteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BC /* AutocompleteService.swift */; };
+		B100000100000000000000C1 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C1 /* HistoryStore.swift */; };
 		B100000100000000000000BD /* FilterList.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BD /* FilterList.swift */; };
 		B100000100000000000000BE /* FilterListManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BE /* FilterListManager.swift */; };
 		B100000100000000000000BF /* PrivacyShieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BF /* PrivacyShieldView.swift */; };
@@ -42,6 +43,7 @@
 	B100000200000000000000AB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B100000200000000000000BA /* ContentBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlocker.swift; sourceTree = "<group>"; };
 		B100000200000000000000BC /* AutocompleteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteService.swift; sourceTree = "<group>"; };
+		B100000200000000000000C1 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		B100000200000000000000BD /* FilterList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterList.swift; sourceTree = "<group>"; };
 		B100000200000000000000BE /* FilterListManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterListManager.swift; sourceTree = "<group>"; };
 		B100000200000000000000BF /* PrivacyShieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyShieldView.swift; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 				B100000200000000000000BC /* AutocompleteService.swift */,
 				B100000200000000000000BD /* FilterList.swift */,
 				B100000200000000000000BE /* FilterListManager.swift */,
+				B100000200000000000000C1 /* HistoryStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -223,6 +226,7 @@
 			B100000100000000000000AB /* SettingsView.swift in Sources */,
 			B100000100000000000000BA /* ContentBlocker.swift in Sources */,
 			B100000100000000000000BB /* AutocompleteService.swift in Sources */,
+				B100000100000000000000C1 /* HistoryStore.swift in Sources */,
 		);
 		runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,7 +286,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -339,7 +343,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -364,7 +368,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.prism.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -392,7 +396,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.prism.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";

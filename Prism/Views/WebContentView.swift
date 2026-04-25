@@ -27,16 +27,14 @@ struct WebContentView: NSViewRepresentable {
     
     private func applyInsets(to webView: WKWebView) {
         let topPadding: CGFloat = 72
-        
+
         if let scrollView = webView.enclosingScrollView {
             let contentInset = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
             scrollView.contentInsets = contentInset
             scrollView.verticalScrollElasticity = .none
         }
-        
+
         webView.additionalSafeAreaInsets = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
-        
-        webView.evaluateJavaScript("window.scrollTo(0, 0);") { _, _ in }
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {

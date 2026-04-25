@@ -18,7 +18,7 @@ struct AddressBarView: View {
     @State private var isEditing: Bool = false
     @State private var isHovered: Bool = false
     @State private var showPrivacyPopover = false
-    @State private var debounceWorkItem: DispatchWorkItem?
+    @State private var autocompleteTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
     var activeTab: BrowserTab? { browserState.activeTab }
@@ -69,19 +69,19 @@ struct AddressBarView: View {
                             break
                         }
                     }
-                    .onChange(of: isFocused) { focused in
+                    .onChange(of: isFocused) { _, newValue in
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            isEditing = focused
+                            isEditing = newValue
                         }
-                        if focused {
+                        if newValue {
                             editingText = activeTab?.displayURL ?? ""
                         } else {
                             suggestions = []
                         }
                     }
-                    .onChange(of: editingText) { newValue in
+                    .onChange(of: editingText) { _, newValue in
                         selectedSuggestionIndex = nil
-                        debounceWorkItem?.cancel()
+                        autocompleteTask?.cancel()
 
                         guard isFocused,
                               settings.autocompleteProvider != .none,
@@ -90,11 +90,11 @@ struct AddressBarView: View {
                             return
                         }
 
-                        let workItem = DispatchWorkItem {
-                            fetchAutocomplete(for: newValue)
+                        autocompleteTask = Task {
+                            try? await Task.sleep(for: .milliseconds(200))
+                            guard !Task.isCancelled else { return }
+                            await fetchAutocomplete(for: newValue)
                         }
-                        debounceWorkItem = workItem
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
                     }
             }
 
@@ -126,7 +126,7 @@ struct AddressBarView: View {
                     .onAppear {
                         barFrame = geo.frame(in: .named("browserWindow"))
                     }
-                    .onChange(of: geo.frame(in: .named("browserWindow"))) { newFrame in
+                    .onChange(of: geo.frame(in: .named("browserWindow"))) { _, newFrame in
                         barFrame = newFrame
                     }
             }
@@ -276,15 +276,18 @@ struct AddressBarView: View {
         .opacity(url.isEmpty ? 0 : 1)
     }
 
-    private func fetchAutocomplete(for query: String) {
-        AutocompleteService.shared.fetchSuggestions(
+    @MainActor
+    private func fetchAutocomplete(for query: String) async {
+        let results = await AutocompleteService.shared.fetchSuggestions(
             for: query,
             provider: settings.autocompleteProvider,
             customURL: settings.searchEngine == .searxng ? settings.searxngURL : nil,
-            apiKey: settings.autocompleteAPIKey.isEmpty ? nil : settings.autocompleteAPIKey
-        ) { results in
-            self.suggestions = results
-        }
+            apiKey: settings.autocompleteAPIKey.isEmpty ? nil : settings.autocompleteAPIKey,
+            bookmarks: bookmarkStore.bookmarks,
+            history: HistoryStore.shared.entries
+        )
+        guard !Task.isCancelled else { return }
+        suggestions = results
     }
 
     // MARK: Actions
@@ -355,8 +358,8 @@ struct SuggestionsOverlay: View {
                     .onAppear {
                         suggestionsHeight = geo.size.height
                     }
-                    .onChange(of: geo.size.height) {
-                        suggestionsHeight = $0
+                    .onChange(of: geo.size.height) { _, newHeight in
+                        suggestionsHeight = newHeight
                     }
             }
         )
@@ -402,7 +405,7 @@ struct SuggestionRow: View {
         .padding(.vertical, 8)
         .frame(height: 36)
         .background(isSelected ? Color.accentColor : Color.clear)
-        .cornerRadius(6)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var iconColor: Color {

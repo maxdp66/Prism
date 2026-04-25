@@ -24,10 +24,10 @@ enum SuggestionType: String, CaseIterable {
 
     var iconName: String {
         switch self {
-        case .search: return "magnifyingglass"
-        case .url: return "globe"
+        case .search:   return "magnifyingglass"
+        case .url:      return "globe"
         case .bookmark: return "star.fill"
-        case .history: return "clock"
+        case .history:  return "clock"
         }
     }
 }
@@ -38,127 +38,155 @@ final class AutocompleteService {
 
     static let shared = AutocompleteService()
 
-    private var currentTask: URLSessionDataTask?
-    private let session = URLSession.shared
+    private let session: URLSession
 
-    private init() {}
+    private init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 5.0
+        config.timeoutIntervalForResource = 10.0
+        self.session = URLSession(configuration: config)
+    }
+
+    // MARK: - Public async API
 
     func fetchSuggestions(
         for query: String,
         provider: AutocompleteProvider,
         customURL: String?,
         apiKey: String?,
-        completion: @escaping ([Suggestion]) -> Void
-    ) {
-        currentTask?.cancel()
+        bookmarks: [Bookmark] = [],
+        history: [HistoryEntry] = []
+    ) async -> [Suggestion] {
+        guard !query.isEmpty else { return [] }
 
-        guard !query.isEmpty else {
-            completion([])
-            return
+        // Local results first (bookmarks + history), no network needed
+        let localResults = buildLocalSuggestions(
+            query: query,
+            bookmarks: bookmarks,
+            history: history
+        )
+
+        guard provider != .none,
+              let urlString = provider.autocompleteURL(customURL: customURL),
+              let baseURL = URL(string: urlString) else {
+            return localResults
         }
 
-        guard let urlString = provider.autocompleteURL(customURL: customURL),
-              let url = URL(string: urlString) else {
-            completion([])
-            return
+        guard let request = buildRequest(
+            provider: provider,
+            baseURL: baseURL,
+            query: query,
+            apiKey: apiKey
+        ) else {
+            return localResults
         }
 
-        var request = URLRequest(url: url)
+        do {
+            let (data, _) = try await session.data(for: request)
+            let remote = parseSuggestions(from: data, provider: provider, query: query)
+            // Merge: local first, then remote de-duped
+            let localURLs = Set(localResults.map { $0.text })
+            let deduped = remote.filter { !localURLs.contains($0.text) }
+            return localResults + deduped
+        } catch {
+            return localResults
+        }
+    }
+
+    // MARK: - Local suggestions
+
+    private func buildLocalSuggestions(
+        query: String,
+        bookmarks: [Bookmark],
+        history: [HistoryEntry]
+    ) -> [Suggestion] {
+        let q = query.lowercased()
+
+        let bookmarkSuggestions: [Suggestion] = bookmarks
+            .filter { $0.url.lowercased().contains(q) || $0.title.lowercased().contains(q) }
+            .prefix(3)
+            .map { bm in
+                Suggestion(text: bm.url, subtitle: bm.title, type: .bookmark, dateText: nil)
+            }
+
+        let historySuggestions: [Suggestion] = history
+            .filter { $0.url.lowercased().contains(q) || $0.title.lowercased().contains(q) }
+            .prefix(3)
+            .map { entry in
+                let formatter = RelativeDateTimeFormatter()
+                formatter.unitsStyle = .abbreviated
+                let date = formatter.localizedString(for: entry.visitedAt, relativeTo: Date())
+                return Suggestion(text: entry.url, subtitle: entry.title, type: .history, dateText: date)
+            }
+
+        // Deduplicate history vs bookmarks (bookmark wins)
+        let bookmarkURLs = Set(bookmarkSuggestions.map { $0.text })
+        let filteredHistory = historySuggestions.filter { !bookmarkURLs.contains($0.text) }
+
+        return bookmarkSuggestions + filteredHistory
+    }
+
+    // MARK: - Request builder
+
+    private func buildRequest(
+        provider: AutocompleteProvider,
+        baseURL: URL,
+        query: String,
+        apiKey: String?
+    ) -> URLRequest? {
+        var request = URLRequest(url: baseURL)
         request.httpMethod = "GET"
 
         switch provider {
         case .none:
-            completion([])
-            return
+            return nil
 
         case .duckDuckGo:
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
-            components.queryItems = [
+            var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+            comps.queryItems = [
                 URLQueryItem(name: "q", value: query),
                 URLQueryItem(name: "type", value: "list")
             ]
-            guard let acURL = components.url else {
-                completion([])
-                return
-            }
-            request.url = acURL
+            guard let url = comps.url else { return nil }
+            request.url = url
 
         case .google:
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
-            components.queryItems = [
+            var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+            comps.queryItems = [
                 URLQueryItem(name: "client", value: "firefox"),
                 URLQueryItem(name: "q", value: query),
                 URLQueryItem(name: "hl", value: "en")
             ]
-            guard let acURL = components.url else {
-                completion([])
-                return
-            }
-            request.url = acURL
+            guard let url = comps.url else { return nil }
+            request.url = url
 
         case .brave:
-            guard let apiKey = apiKey, !apiKey.isEmpty else {
-                completion([])
-                return
-            }
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
-            components.queryItems = [
+            guard let key = apiKey, !key.isEmpty else { return nil }
+            var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+            comps.queryItems = [
                 URLQueryItem(name: "q", value: query),
                 URLQueryItem(name: "country", value: "US"),
                 URLQueryItem(name: "count", value: "8")
             ]
-            guard let acURL = components.url else {
-                completion([])
-                return
-            }
-            request.url = acURL
-            request.setValue(apiKey, forHTTPHeaderField: "X-Subscription-Token")
+            guard let url = comps.url else { return nil }
+            request.url = url
+            request.setValue(key, forHTTPHeaderField: "X-Subscription-Token")
 
         case .searxng:
-            guard let customURL = customURL, !customURL.isEmpty else {
-                completion([])
-                return
-            }
-            var baseURL = customURL
-            if !baseURL.hasPrefix("http://") && !baseURL.hasPrefix("https://") {
-                baseURL = "https://" + baseURL
-            }
-            baseURL = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            guard let searxURL = URL(string: baseURL) else {
-                completion([])
-                return
-            }
-            var components = URLComponents(url: searxURL, resolvingAgainstBaseURL: false)!
-            components.path = "/autocomplete"
-            components.queryItems = [
+            var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+            comps.path = "/autocomplete"
+            comps.queryItems = [
                 URLQueryItem(name: "q", value: query),
                 URLQueryItem(name: "format", value: "json")
             ]
-            guard let acURL = components.url else {
-                completion([])
-                return
-            }
-            request.url = acURL
+            guard let url = comps.url else { return nil }
+            request.url = url
         }
 
-        currentTask = session.dataTask(with: request) { data, response, error in
-            guard error == nil,
-                  let data = data else {
-                DispatchQueue.main.async {
-                    completion([])
-                }
-                return
-            }
-
-            let suggestions = self.parseSuggestions(from: data, provider: provider, query: query)
-
-            DispatchQueue.main.async {
-                completion(suggestions)
-            }
-        }
-
-        currentTask?.resume()
+        return request
     }
+
+    // MARK: - JSON parsing
 
     private func parseSuggestions(from data: Data, provider: AutocompleteProvider, query: String) -> [Suggestion] {
         let rawSuggestions: [String]
@@ -167,76 +195,39 @@ final class AutocompleteService {
         case .none:
             return []
 
-        case .searxng:
+        case .searxng, .duckDuckGo, .google:
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
                   json.count > 1,
-                  let suggestions = json[1] as? [String] else {
-                return []
-            }
-            rawSuggestions = suggestions
-
-        case .duckDuckGo:
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
-                  json.count > 1,
-                  let suggestions = json[1] as? [String] else {
-                return []
-            }
-            rawSuggestions = suggestions
-
-        case .google:
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
-                  json.count > 1,
-                  let suggestionsArray = json[1] as? [String] else {
-                return []
-            }
-            rawSuggestions = suggestionsArray
+                  let arr = json[1] as? [String] else { return [] }
+            rawSuggestions = arr
 
         case .brave:
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let suggestions = json["suggestions"] as? [[String: Any]] else {
-                return []
-            }
+                  let suggestions = json["suggestions"] as? [[String: Any]] else { return [] }
             rawSuggestions = suggestions.compactMap { $0["text"] as? String }
         }
 
         return rawSuggestions.map { suggestion in
-            let type: SuggestionType
-            if isLikelyURL(suggestion) {
-                type = .url
-            } else {
-                type = .search
-            }
+            let type: SuggestionType = isLikelyURL(suggestion) ? .url : .search
             let subtitle = extractHost(from: suggestion)
-            return Suggestion(
-                text: suggestion,
-                subtitle: subtitle,
-                type: type,
-                dateText: nil
-            )
+            return Suggestion(text: suggestion, subtitle: subtitle, type: type, dateText: nil)
         }
     }
+
+    // MARK: - Helpers
 
     private func extractHost(from text: String) -> String? {
         let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? text
         guard let url = URL(string: encoded.hasPrefix("http") ? encoded : "https://\(encoded)"),
-              let host = url.host else {
-            return nil
-        }
+              let host = url.host else { return nil }
         return host.replacingOccurrences(of: "www.", with: "")
     }
 
     private func isLikelyURL(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Contains a dot (domain separator), no spaces, and has a plausible path or TLD
         guard trimmed.contains(".") && !trimmed.contains(" ") else { return false }
-        // Exclude raw search queries that happen to contain dots (e.g. "swift 5.9")
         let components = trimmed.split(separator: ".")
         guard let last = components.last, last.count >= 2 else { return false }
         return true
-    }
-
-    func cancel() {
-        currentTask?.cancel()
-        currentTask = nil
     }
 }

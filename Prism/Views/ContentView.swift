@@ -51,16 +51,34 @@ struct ContentView: View {
                     .zIndex(1)
             }
 
-            UnifiedToolbar(
-                barFrame: $barFrame,
-                suggestions: $suggestions,
-                suggestionsHeight: $suggestionsHeight,
-                selectedSuggestionIndex: $selectedSuggestionIndex
-            )
-            .environmentObject(browserState)
-            .environmentObject(bookmarkStore)
-            .environmentObject(settings)
-            .coordinateSpace(name: "browserWindow")
+            VStack(spacing: 0) {
+                UnifiedToolbar(
+                    barFrame: $barFrame,
+                    suggestions: $suggestions,
+                    suggestionsHeight: $suggestionsHeight,
+                    selectedSuggestionIndex: $selectedSuggestionIndex
+                )
+                .environmentObject(browserState)
+                .environmentObject(bookmarkStore)
+                .environmentObject(settings)
+                .coordinateSpace(name: "browserWindow")
+
+                // Settings-changed reload banner
+                if browserState.settingsChangedNeedsReload {
+                    SettingsReloadBanner {
+                        browserState.reloadAllTabs()
+                    } onDismiss: {
+                        browserState.settingsChangedNeedsReload = false
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // Find in page bar
+                if let tab = browserState.activeTab, tab.isFindBarVisible {
+                    FindBar(tab: tab)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .zIndex(1)
 
             if !suggestions.isEmpty {
@@ -88,7 +106,9 @@ struct ContentView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
-        .onChange(of: browserState.activeTabId) { _ in
+        .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.settingsChangedNeedsReload)
+        .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.activeTab?.isFindBarVisible)
+        .onChange(of: browserState.activeTabId) { _, _ in
             suggestions = []
             selectedSuggestionIndex = nil
         }
@@ -236,10 +256,8 @@ struct UnifiedToolbar: View {
             }
             .frame(height: 34)
             .scrollContentBackground(.hidden)
-            .onChange(of: browserState.activeTabId) { id in
-                if let id {
-                    withAnimation { }
-                }
+            .onChange(of: browserState.activeTabId) { _, _ in
+                withAnimation { }
             }
 
             Rectangle()
@@ -361,6 +379,128 @@ struct TabSeparatorView: View {
             .frame(width: 1, height: 16)
             .opacity(isActiveOrHovered ? 0 : 1)
             .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - FindBar
+
+struct FindBar: View {
+    @ObservedObject var tab: BrowserTab
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+
+            TextField("Find in page", text: $tab.findQuery)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($isFocused)
+                .onSubmit { tab.findInPage(tab.findQuery, forward: true) }
+                .onChange(of: tab.findQuery) { _, query in
+                    tab.findInPage(query, forward: true)
+                }
+
+            if tab.findMatchCount == 0 && !tab.findQuery.isEmpty {
+                Text("No results")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 4) {
+                Button {
+                    tab.findInPage(tab.findQuery, forward: false)
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .disabled(tab.findQuery.isEmpty)
+
+                Button {
+                    tab.findInPage(tab.findQuery, forward: true)
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .disabled(tab.findQuery.isEmpty)
+            }
+
+            Spacer()
+
+            Button {
+                tab.dismissFindBar()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 16, height: 16)
+                    .background(Color.primary.opacity(0.08))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.escape, modifiers: [])
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 7)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.1))
+                .frame(height: 0.5)
+        }
+        .onAppear { isFocused = true }
+    }
+}
+
+// MARK: - SettingsReloadBanner
+
+struct SettingsReloadBanner: View {
+    let onReloadAll: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .foregroundColor(.blue)
+                .font(.system(size: 13))
+
+            Text("Settings updated — reload tabs to apply changes.")
+                .font(.system(size: 12))
+                .foregroundColor(.primary)
+
+            Spacer()
+
+            Button("Reload All") {
+                onReloadAll()
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.blue)
+            .buttonStyle(.plain)
+
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 16, height: 16)
+                    .background(Color.primary.opacity(0.08))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 7)
+        .background(Color.blue.opacity(0.08))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.1))
+                .frame(height: 0.5)
+        }
     }
 }
 

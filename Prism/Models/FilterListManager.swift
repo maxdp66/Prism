@@ -66,15 +66,27 @@ final class FilterListManager: ObservableObject {
 
         var updatedLists = filterLists
 
-        for (index, filterList) in filterLists.enumerated() where filterList.isEnabled {
-            do {
-                let (ruleCount, _) = try await downloadAndParseFilterList(filterList)
-                updatedLists[index].lastUpdated = Date()
-                updatedLists[index].ruleCount = ruleCount
-                logger.info("Updated \(filterList.name): \(ruleCount) rules")
-            } catch {
-                logger.error("Failed to update \(filterList.name): \(error.localizedDescription)")
-                errorMessage = error.localizedDescription
+        // Download all enabled filter lists in parallel
+        await withTaskGroup(of: (Int, Int?, String?).self) { group in
+            for (index, filterList) in filterLists.enumerated() where filterList.isEnabled {
+                group.addTask {
+                    do {
+                        let (ruleCount, _) = try await self.downloadAndParseFilterList(filterList)
+                        return (index, ruleCount, nil)
+                    } catch {
+                        return (index, nil, error.localizedDescription)
+                    }
+                }
+            }
+            for await (index, ruleCount, errMsg) in group {
+                if let ruleCount {
+                    updatedLists[index].lastUpdated = Date()
+                    updatedLists[index].ruleCount = ruleCount
+                    logger.info("Updated \(self.filterLists[index].name): \(ruleCount) rules")
+                } else if let errMsg {
+                    logger.error("Failed to update \(self.filterLists[index].name): \(errMsg)")
+                    errorMessage = errMsg
+                }
             }
         }
 
