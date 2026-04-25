@@ -24,7 +24,7 @@ struct WebContentView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        let newInsets = NSEdgeInsets(top: 72, left: 0, bottom: 0, right: 0)
+        let newInsets = NSEdgeInsets(top: 48, left: 0, bottom: 0, right: 0)
         if nsView.additionalSafeAreaInsets.top != newInsets.top ||
            nsView.additionalSafeAreaInsets.left != newInsets.left ||
            nsView.additionalSafeAreaInsets.bottom != newInsets.bottom ||
@@ -47,7 +47,7 @@ struct WebContentContainer: NSViewRepresentable {
         container.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 72),
+            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 48),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
