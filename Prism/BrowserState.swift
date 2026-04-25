@@ -12,6 +12,7 @@ final class BrowserState: ObservableObject {
 
     @Published var tabs: [BrowserTab] = []
     @Published var activeTabId: UUID?
+    @Published var focusedTabId: UUID?
     @Published var sidebarVisible: Bool = true
     @Published var isContentBlockerReady: Bool = false
     @Published var contentBlockerError: String? = nil
@@ -147,13 +148,20 @@ final class BrowserState: ObservableObject {
     // MARK: - Tab Management
 
     func addNewTab(url: URL? = nil) {
+        addNewTabAndGetId(url: url)
+    }
+
+    @discardableResult
+    func addNewTabAndGetId(url: URL? = nil) -> UUID {
         let tab = BrowserTab(configuration: sharedConfiguration, settings: settings)
         tabs.append(tab)
         activateTab(tab)
+        focusedTabId = tab.id
 
         if let url {
             tab.webView.load(URLRequest(url: url))
         }
+        return tab.id
     }
 
     private var closedTabURLs: [URL] = []

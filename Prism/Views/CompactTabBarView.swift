@@ -14,64 +14,60 @@ struct CompactTabBar: View {
     @Binding var suggestionsHeight: CGFloat
     @Binding var selectedSuggestionIndex: Int?
     
-    @State private var focusedTabId: UUID? = nil
-    
     var body: some View {
         HStack(spacing: 6) {
             // Leading spacer for traffic lights
             Color.clear
                 .frame(width: 76)
-            
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 3) {
                     ForEach(browserState.tabs, id: \.id) { tab in
                         CompactTabItem(
                             tab: tab,
-                            isFocused: focusedTabId == tab.id,
+
                             barFrame: $barFrame,
                             suggestions: $suggestions,
                             suggestionsHeight: $suggestionsHeight,
                             selectedSuggestionIndex: $selectedSuggestionIndex,
                             onFocus: {
-                                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                                    focusedTabId = tab.id
-                                }
+                                browserState.focusedTabId = tab.id
                             },
                             onBlur: {
-                                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                                    focusedTabId = nil
-                                }
+                                browserState.focusedTabId = nil
                             }
                         )
                         .environmentObject(browserState)
                         .environmentObject(bookmarkStore)
                         .environmentObject(settings)
-                        .id(tab.id)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .center)))
                     }
+
+                    // New Tab Button - inline with tabs, inside scroll view
+                    Button {
+                        browserState.addNewTabAndGetId(url: nil)
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 22, height: 22)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.primary.opacity(0.05))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help("New Tab (⌘T)")
                 }
-                .padding(.horizontal, 6)
+                .animation(.spring(response: 0.2, dampingFraction: 0.8), value: browserState.activeTabId)
             }
-            .frame(maxWidth: .infinity)
-            
-            // New Tab Button
-            Button {
-                browserState.addNewTab(url: nil)
-                focusedTabId = nil
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 22, height: 22)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.primary.opacity(0.05))
-                    )
-            }
-            .buttonStyle(.plain)
-            .help("New Tab (⌘T)")
         }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.top, 7)
+        .padding(.bottom, 7)
+        .gesture(DragGesture().onChanged { _ in }) // Prevent window dragging
     }
 }
 
@@ -83,8 +79,6 @@ struct CompactTabItem: View {
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject var bookmarkStore: BookmarkStore
     @EnvironmentObject private var settings: BrowserSettings
-    
-    let isFocused: Bool
     
     @Binding var barFrame: CGRect
     @Binding var suggestions: [Suggestion]
@@ -103,6 +97,10 @@ struct CompactTabItem: View {
         browserState.activeTabId == tab.id
     }
     
+    private var isFocused: Bool {
+        browserState.focusedTabId == tab.id
+    }
+    
     private var searchPlaceholder: String {
         "Search \(settings.searchEngine.rawValue) or enter address"
     }
@@ -112,9 +110,22 @@ struct CompactTabItem: View {
             if isFocused {
                 // Address Bar Mode
                 addressBarContent
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            if isFocused {
+                                addressBarFocused = true
+                            }
+                        }
+                    }
             } else {
                 // Tab Display Mode
                 tabDisplayContent
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
+                    .onTapGesture {
+                        browserState.activateTab(tab)
+                        onFocus()
+                        editingText = tab.displayURL
+                    }
             }
         }
         .frame(minWidth: 60, maxWidth: .infinity)
@@ -136,24 +147,13 @@ struct CompactTabItem: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .onHover { isHovered = $0 }
-        .onTapGesture {
-            if !isFocused {
-                onFocus()
-                addressBarFocused = true
-                editingText = tab.displayURL
-            }
-        }
         .onChange(of: addressBarFocused) { _, newValue in
             if !newValue && isFocused {
                 onBlur()
                 suggestions = []
             }
         }
-        .onChange(of: browserState.activeTabId) { _, _ in
-            if isFocused && browserState.activeTabId != tab.id {
-                addressBarFocused = false
-            }
-        }
+        
     }
     
      @ViewBuilder
@@ -219,6 +219,7 @@ struct CompactTabItem: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
+        .frame(minWidth: 200, idealWidth: 300, maxWidth: .infinity)
         .background(
             GeometryReader { geo in
                 Color.clear
@@ -252,7 +253,7 @@ struct CompactTabItem: View {
                 }
             }
             .frame(width: 14, height: 14)
-            
+
             // Title/URL
             VStack(alignment: .leading, spacing: 0) {
                 Text(tab.title.isEmpty ? "New Tab" : tab.title)
@@ -260,9 +261,9 @@ struct CompactTabItem: View {
                     .foregroundColor(isActive ? .primary : .secondary)
                     .lineLimit(1)
             }
-            
+
             Spacer()
-            
+
             // Close button (always accessible, appears on hover)
             if isHovered {
                 Button {
@@ -283,9 +284,7 @@ struct CompactTabItem: View {
             }
         }
         .padding(.horizontal, 8)
-        .onTapGesture {
-            browserState.activateTab(tab)
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     @MainActor
@@ -304,20 +303,25 @@ struct CompactTabItem: View {
     
     private func commitAddress() {
         let text = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        addressBarFocused = false
         
         if let index = selectedSuggestionIndex,
            index >= 0, index < suggestions.count {
             let selected = suggestions[index]
             selectedSuggestionIndex = nil
             suggestions = []
+            browserState.activateTab(tab)
             tab.navigate(to: selected.text, grabFocus: true)
         } else {
             suggestions = []
             selectedSuggestionIndex = nil
             if !text.isEmpty {
+                browserState.activateTab(tab)
                 tab.navigate(to: text, grabFocus: true)
             }
         }
+        
+        // Keep tab focused after navigation, clear typing state
+        addressBarFocused = false
+        editingText = ""
     }
 }

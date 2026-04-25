@@ -83,7 +83,7 @@ struct ContentView: View {
         .frame(height: settings.layoutStyle == .vertical ? 38 : 48)
     }
 
-    private var webContentSection: some View {
+private var webContentSection: some View {
         ZStack {
             HSplitView {
                 if settings.layoutStyle == .vertical {
@@ -112,6 +112,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.top, settings.layoutStyle.headerHeight)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: browserState.activeTabId)
 
             if !suggestions.isEmpty {
                 Color.clear
