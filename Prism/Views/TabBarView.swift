@@ -41,19 +41,20 @@ struct TabPillView: View {
                 .lineLimit(1)
         }
         .padding(.horizontal, 10)
-        .frame(height: 24)
+        .frame(height: 26)
         .background(
             Group {
                 if isActive {
                     Capsule()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
                         .overlay(
                             Capsule()
-                                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
                         )
+                        .shadow(color: .black.opacity(0.1), radius: 0.5, x: 0, y: 0.5)
                 } else if isHovered {
                     Capsule()
-                        .fill(Color.primary.opacity(0.08))
+                        .fill(Color.primary.opacity(0.06))
                 }
             }
         )

@@ -18,7 +18,7 @@ struct PrismApp: App {
                 .environmentObject(settings)
                 .onAppear {
                     NSApp.windows.forEach { window in
-                        window.styleMask.insert(.fullSizeContentView)
+                        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
                         window.titlebarAppearsTransparent = true
                         window.titleVisibility = .hidden
                         window.titlebarSeparatorStyle = .none
@@ -26,6 +26,8 @@ struct PrismApp: App {
                         window.standardWindowButton(.closeButton)?.isHidden = false
                         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
                         window.standardWindowButton(.zoomButton)?.isHidden = false
+                        window.toolbar = nil
+                        window.appearance = NSAppearance(named: .vibrantDark)
                     }
                 }
         }
@@ -129,7 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureWindow(_ window: NSWindow) {
-        window.styleMask.insert(.fullSizeContentView)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.titlebarSeparatorStyle = .none
@@ -137,5 +139,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.standardWindowButton(.closeButton)?.isHidden = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
         window.standardWindowButton(.zoomButton)?.isHidden = false
+        window.toolbar = nil
+        window.appearance = NSAppearance(named: .vibrantDark)
     }
 }

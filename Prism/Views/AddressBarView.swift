@@ -32,13 +32,19 @@ struct AddressBarView: View {
     }
 
     private var addressBarContent: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 10) {
+            // MARK: Security/Search Icon
             securityIcon
+                .frame(width: 16, height: 16)
 
+            // MARK: Address Input Field
             ZStack(alignment: .leading) {
+                // Display mode (non-editing)
                 if !isEditing {
                     displayLabel
                 }
+                
+                // Input mode (editing)
                 TextField(searchPlaceholder, text: $editingText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
@@ -69,54 +75,58 @@ struct AddressBarView: View {
                             break
                         }
                     }
-                    .onChange(of: isFocused) {
+                    .onChange(of: isFocused) { _, newValue in
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            isEditing = isFocused
+                            isEditing = newValue
                         }
-                        if isFocused {
+                        if newValue {
                             editingText = activeTab?.displayURL ?? ""
                         } else {
                             suggestions = []
                         }
                     }
-                    .onChange(of: editingText) {
+                    .onChange(of: editingText) { _, newValue in
                         selectedSuggestionIndex = nil
                         autocompleteTask?.cancel()
 
                         guard isFocused,
                               settings.autocompleteProvider != .none,
-                              editingText.count >= 2 else {
+                              newValue.count >= 2 else {
                             suggestions = []
                             return
                         }
 
-                        let text = editingText
                         autocompleteTask = Task {
                             try? await Task.sleep(for: .milliseconds(200))
                             guard !Task.isCancelled else { return }
-                            await fetchAutocomplete(for: text)
+                            await fetchAutocomplete(for: newValue)
                         }
                     }
             }
 
             Spacer(minLength: 0)
 
-            privacyShield
-
-            bookmarkButton
+            // MARK: Right-side Controls
+            HStack(spacing: 12) {
+                privacyShield
+                bookmarkButton
+            }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.primary.opacity(0.06))
-
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(NSColor.controlBackgroundColor).opacity(isEditing ? 0.75 : 0.5))
+                
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(
+                        Color.primary.opacity(isEditing ? 0.15 : 0.06),
+                        lineWidth: 1
+                    )
             }
         )
-        .frame(height: 22)
+        .frame(height: 32)
         .onHover { isHovered = $0 }
         .onTapGesture {
             isFocused = true
@@ -127,8 +137,8 @@ struct AddressBarView: View {
                     .onAppear {
                         barFrame = geo.frame(in: .named("browserWindow"))
                     }
-                    .onChange(of: geo.frame(in: .named("browserWindow"))) {
-                        barFrame = geo.frame(in: .named("browserWindow"))
+                    .onChange(of: geo.frame(in: .named("browserWindow"))) { _, newFrame in
+                        barFrame = newFrame
                     }
             }
         )
@@ -153,14 +163,13 @@ struct AddressBarView: View {
             if hasURL {
                 Image(systemName: isSecure ? "lock.fill" : "globe")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(isSecure ? .green : .secondary)
+                    .foregroundColor(isSecure ? Color(red: 0.2, green: 0.8, blue: 0.2) : .secondary)
             } else {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
             }
         }
-        .frame(width: 16)
     }
 
     @ViewBuilder
@@ -194,7 +203,7 @@ struct AddressBarView: View {
 
         var h = AttributedString(host)
         h.foregroundColor = .primary
-        h.font = .system(size: 13, weight: .medium)
+        h.font = .system(size: 13, weight: .semibold)
 
         var r = AttributedString(rest)
         r.foregroundColor = .secondary
@@ -209,14 +218,15 @@ struct AddressBarView: View {
         let isEnabled = browserState.isContentBlockerReady && settings.contentBlockerEnabled
 
         Button(action: { showPrivacyPopover = true }) {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Image(systemName: "shield.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(count > 0 ? .prismPurple : .secondary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(count > 0 ? Color(red: 0.6, green: 0.3, blue: 1.0) : .secondary)
+                
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundColor(.prismPurple)
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color(red: 0.6, green: 0.3, blue: 1.0))
                 }
             }
         }
@@ -226,7 +236,7 @@ struct AddressBarView: View {
             VStack(spacing: 12) {
                 HStack {
                     Image(systemName: "shield.fill")
-                        .foregroundColor(isEnabled ? .green : .secondary)
+                        .foregroundColor(isEnabled ? Color(red: 0.2, green: 0.8, blue: 0.2) : .secondary)
                         .font(.system(size: 14))
                     Text(isEnabled ? "Content Blocker Active" : "Content Blocker Inactive")
                         .font(.system(size: 12, weight: .medium))
@@ -240,7 +250,7 @@ struct AddressBarView: View {
                     Spacer()
                     Text("\(count)")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(count > 0 ? .prismPurple : .secondary)
+                        .foregroundColor(count > 0 ? Color(red: 0.6, green: 0.3, blue: 1.0) : .secondary)
                 }
             }
             .padding(12)
@@ -267,14 +277,14 @@ struct AddressBarView: View {
             }
         } label: {
             Image(systemName: isBookmarked ? "star.fill" : "star")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(isBookmarked ? .yellow : .secondary)
-                .scaleEffect(isBookmarked ? 1.2 : 1.0)
-                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isBookmarked)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(isBookmarked ? Color(red: 1.0, green: 0.8, blue: 0.0) : .secondary)
+                .scaleEffect(isBookmarked ? 1.15 : 1.0)
         }
         .buttonStyle(.plain)
         .help(isBookmarked ? "Remove Bookmark" : "Add Bookmark")
         .opacity(url.isEmpty ? 0 : 1)
+        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isBookmarked)
     }
 
     @MainActor

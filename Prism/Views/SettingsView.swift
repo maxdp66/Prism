@@ -68,10 +68,101 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Layout Style")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 16) {
+                        ForEach(TabLayoutStyle.allCases) { style in
+                            LayoutOptionCard(
+                                style: style,
+                                isSelected: settings.layoutStyle == style
+                            ) {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    settings.layoutStyle = style
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         .formStyle(.grouped)
         .padding(20)
         .frame(minWidth: 400, minHeight: 300)
+    }
+}
+
+// MARK: - Layout Option Card
+
+struct LayoutOptionCard: View {
+    let style: TabLayoutStyle
+    let isSelected: Bool
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(NSColor.windowBackgroundColor))
+                        .frame(width: 85, height: 60)
+                        .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 1)
+
+                    LayoutMiniature(style: style)
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
+                        .padding(-5)
+                )
+
+                Text(style.rawValue)
+                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .foregroundColor(isSelected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
+    }
+}
+
+// MARK: - Layout Miniature
+
+struct LayoutMiniature: View {
+    let style: TabLayoutStyle
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.secondary.opacity(0.1))
+                    .padding(2)
+
+                if style == .vertical {
+                    Rectangle()
+                        .fill(Color.accentColor.opacity(0.3))
+                        .frame(width: geo.size.width * 0.25)
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: 2)
+                        )
+                        .padding([.leading, .top, .bottom], 4)
+                } else {
+                    VStack(spacing: 2) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.accentColor.opacity(0.3))
+                            .frame(height: style == .standard ? 12 : 6)
+                        Spacer()
+                    }
+                    .padding(4)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .padding(2)
     }
 }

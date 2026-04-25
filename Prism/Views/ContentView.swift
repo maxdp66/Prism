@@ -16,52 +16,82 @@ struct ContentView: View {
 
     private var immersiveHeader: some View {
         ZStack(alignment: .top) {
-            VisualEffectView(material: .menu, blendingMode: .behindWindow)
+            VisualEffectView(material: .titlebar, blendingMode: .withinWindow)
+                .ignoresSafeArea()
                 .accessibilityHidden(true)
 
             if let activeTab = browserState.activeTab, activeTab.themeColor != .clear {
-                activeTab.themeColor
-                    .opacity(0.6)
+                Rectangle()
+                    .fill(activeTab.themeColor)
+                    .opacity(0.5)
+                    .ignoresSafeArea()
             }
 
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    AddressBarSection(
-                        barFrame: $barFrame,
-                        suggestions: $suggestions,
-                        suggestionsHeight: $suggestionsHeight,
-                        selectedSuggestionIndex: $selectedSuggestionIndex
-                    )
-                    .environmentObject(browserState)
-                    .environmentObject(bookmarkStore)
-                    .environmentObject(settings)
-                    .coordinateSpace(name: "browserWindow")
-                    .padding(.leading, 80)
+                if settings.layoutStyle == .compact {
+                    compactHeader
+                } else {
+                    standardHeader
                 }
-                .padding(.vertical, 8)
-                .frame(height: 52)
 
-                Divider()
-                    .opacity(0.1)
-
-                TabBarSection()
-                    .environmentObject(browserState)
-                    .environmentObject(bookmarkStore)
-                    .frame(height: 36)
+                if settings.layoutStyle != .compact {
+                    Divider()
+                        .opacity(0.1)
+                }
             }
         }
-        .frame(height: 88)
+        .frame(height: settings.layoutStyle.headerHeight)
+        .ignoresSafeArea()
+        .preferredColorScheme(settings.appearanceMode.colorScheme)
+    }
+
+    private var compactHeader: some View {
+        CompactTabBar(
+            barFrame: $barFrame,
+            suggestions: $suggestions,
+            suggestionsHeight: $suggestionsHeight,
+            selectedSuggestionIndex: $selectedSuggestionIndex
+        )
+        .environmentObject(browserState)
+        .environmentObject(bookmarkStore)
+        .environmentObject(settings)
+        .coordinateSpace(name: "browserWindow")
+        .padding(.vertical, 6)
+        .frame(height: settings.layoutStyle.headerHeight)
+    }
+
+    private var standardHeader: some View {
+        HStack(spacing: 12) {
+            Spacer()
+                .frame(width: 80)
+
+            AddressBarView(
+                barFrame: $barFrame,
+                suggestions: $suggestions,
+                suggestionsHeight: $suggestionsHeight,
+                selectedSuggestionIndex: $selectedSuggestionIndex
+            )
+            .environmentObject(browserState)
+            .environmentObject(bookmarkStore)
+            .environmentObject(settings)
+            .coordinateSpace(name: "browserWindow")
+            .frame(maxWidth: 450)
+
+            Spacer()
+        }
+        .padding(.vertical, settings.layoutStyle == .vertical ? 4 : 8)
+        .frame(height: settings.layoutStyle == .vertical ? 38 : 48)
     }
 
     private var webContentSection: some View {
         ZStack {
             HSplitView {
-                if browserState.sidebarVisible {
+                if settings.layoutStyle == .vertical {
                     SidebarView()
                         .environmentObject(browserState)
                         .environmentObject(bookmarkStore)
                         .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
-                        .transition(.move(edge: .leading))
+                        .transition(.move(edge: .leading).combined(with: .opacity))
                 }
 
                 if let tab = browserState.activeTab {
@@ -81,6 +111,7 @@ struct ContentView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, settings.layoutStyle.headerHeight)
 
             if !suggestions.isEmpty {
                 Color.clear
@@ -139,25 +170,33 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack {
+            webContentSection
+                .zIndex(0)
+            
             VStack(spacing: 0) {
                 immersiveHeader
-                webContentSection
+                    .zIndex(1)
+                Spacer()
             }
+            
             suggestionsOverlay
         }
+        .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 900, minHeight: 600)
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
         .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.settingsChangedNeedsReload)
         .animation(.spring(response: 0.2, dampingFraction: 0.9), value: browserState.activeTab?.isFindBarVisible)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: settings.layoutStyle)
         .onChange(of: browserState.activeTabId) {
             suggestions = []
             selectedSuggestionIndex = nil
         }
-        .preferredColorScheme(settings.appearanceMode.colorScheme)
         .animation(.easeInOut(duration: 0.3), value: settings.appearanceMode)
     }
 }
+
+// MARK: - VisualEffectView
 
 // MARK: - VisualEffectView
 
@@ -170,240 +209,12 @@ struct VisualEffectView: NSViewRepresentable {
         view.material = material
         view.blendingMode = blendingMode
         view.state = .active
-        view.appearance = NSAppearance(named: .vibrantDark)
         return view
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
-    }
-}
-
-// MARK: - AddressBarSection
-
-struct AddressBarSection: View {
-
-    @Binding var barFrame: CGRect
-    @Binding var suggestions: [Suggestion]
-    @Binding var suggestionsHeight: CGFloat
-    @Binding var selectedSuggestionIndex: Int?
-
-    @EnvironmentObject var browserState: BrowserState
-    @EnvironmentObject var bookmarkStore: BookmarkStore
-
-    var body: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 6) {
-                ToolbarButton(
-                    symbolName: "chevron.left",
-                    tooltip: "Go Back (⌘[)",
-                    enabled: browserState.activeTab?.canGoBack ?? false
-                ) {
-                    browserState.activeTab?.goBack()
-                }
-
-                ToolbarButton(
-                    symbolName: "chevron.right",
-                    tooltip: "Go Forward (⌘])",
-                    enabled: browserState.activeTab?.canGoForward ?? false
-                ) {
-                    browserState.activeTab?.goForward()
-                }
-
-                ToolbarButton(
-                    symbolName: browserState.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
-                    tooltip: browserState.activeTab?.isLoading == true ? "Stop Loading" : "Reload (⌘R)",
-                    enabled: true
-                ) {
-                    if browserState.activeTab?.isLoading == true {
-                        browserState.activeTab?.stopLoad()
-                    } else {
-                        browserState.activeTab?.reload()
-                    }
-                }
-            }
-            .frame(minWidth: 80, alignment: .leading)
-
-            Spacer()
-
-            AddressBarView(
-                barFrame: $barFrame,
-                suggestions: $suggestions,
-                suggestionsHeight: $suggestionsHeight,
-                selectedSuggestionIndex: $selectedSuggestionIndex
-            )
-            .environmentObject(browserState)
-            .environmentObject(bookmarkStore)
-            .frame(maxWidth: 450)
-
-            Spacer()
-
-            HStack(spacing: 6) {
-                ToolbarButton(
-                    symbolName: "sidebar.left",
-                    tooltip: "Toggle Bookmarks (⌘B)",
-                    enabled: true
-                ) {
-                    browserState.toggleSidebar()
-                }
-            }
-            .frame(minWidth: 40, alignment: .trailing)
-        }
-        .frame(height: 22)
-    }
-}
-
-// MARK: - TabBarSection
-
-struct TabBarSection: View {
-
-    @EnvironmentObject var browserState: BrowserState
-    @EnvironmentObject var bookmarkStore: BookmarkStore
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Spacer()
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 1) {
-                    ForEach(Array(browserState.tabs.enumerated()), id: \.element.id) { index, tab in
-                        let showSeparator = index > 0 && !browserState.tabs.isEmpty
-                        let leftTab = index > 0 ? browserState.tabs[index - 1] : nil
-
-                        if showSeparator {
-                            TabSeparatorView(
-                                leftTab: leftTab,
-                                rightTab: tab,
-                                browserState: browserState
-                            )
-                        }
-
-                        TabPillView(tab: tab)
-                            .environmentObject(browserState)
-                            .frame(minWidth: 100, maxWidth: 250)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .id(tab.id)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: browserState.tabs.count)
-                    }
-                }
-                .padding(.horizontal, 8)
-            }
-            .padding(.vertical, 4)
-
-            Button {
-                browserState.addNewTab(url: nil)
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(Color.primary.opacity(0.05))
-                    )
-            }
-            .buttonStyle(.plain)
-            .help("New Tab (⌘T)")
-            .padding(.trailing, 8)
-
-            Spacer()
-        }
-        .frame(height: 34)
-        .onChange(of: browserState.activeTabId) {
-            withAnimation { }
-        }
-    }
-}
-
-// MARK: - ToolbarButton
-
-struct ToolbarButton: View {
-    let symbolName: String
-    let tooltip: String
-    let enabled: Bool
-    let action: () -> Void
-
-    @State private var isHovered = false
-
-    var body: some View {
-        let shortcut = keyEquivalent(for: symbolName)
-        let mods = modifiers(for: symbolName)
-
-        Button(action: action) {
-            Image(systemName: symbolName)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(enabled ? .primary : .secondary)
-                .opacity(enabled ? 0.7 : 0.4)
-                .frame(width: 20, height: 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isHovered && enabled
-                              ? Color.primary.opacity(0.08)
-                              : Color.clear)
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .help(tooltip)
-        .onHover { isHovered = $0 }
-        .modifier(ConditionalKeyboardShortcut(keyEquivalent: shortcut, modifiers: mods))
-    }
-
-    private func keyEquivalent(for symbol: String) -> KeyEquivalent {
-        switch symbol {
-        case "chevron.left":  return "["
-        case "chevron.right": return "]"
-        case "arrow.clockwise", "xmark": return "r"
-        default: return "\0"
-        }
-    }
-
-    private func modifiers(for symbol: String) -> EventModifiers {
-        switch symbol {
-        case "chevron.left", "chevron.right", "arrow.clockwise", "xmark": return .command
-        default: return []
-        }
-    }
-}
-
-struct ConditionalKeyboardShortcut: ViewModifier {
-    let keyEquivalent: KeyEquivalent
-    let modifiers: EventModifiers
-
-    func body(content: Content) -> some View {
-        if keyEquivalent != KeyEquivalent("\0") || !modifiers.isEmpty {
-            content.keyboardShortcut(keyEquivalent, modifiers: modifiers)
-        } else {
-            content
-        }
-    }
-}
-
-// MARK: - TabSeparatorView
-
-struct TabSeparatorView: View {
-    let leftTab: BrowserTab?
-    let rightTab: BrowserTab
-    @ObservedObject var browserState: BrowserState
-
-    @State private var isHovered = false
-
-    private var isActiveOrHovered: Bool {
-        let rightActive = browserState.activeTabId == rightTab.id
-        let leftActive = leftTab != nil && browserState.activeTabId == leftTab?.id
-
-        let rightHovered = isHovered
-
-        return rightActive || leftActive || rightHovered
-    }
-
-    var body: some View {
-        Rectangle()
-            .fill(Color.primary.opacity(0.1))
-            .frame(width: 1, height: 16)
-            .opacity(isActiveOrHovered ? 0 : 1)
-            .onHover { isHovered = $0 }
     }
 }
 

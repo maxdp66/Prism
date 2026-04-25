@@ -94,6 +94,24 @@ enum AutocompleteProvider: String, CaseIterable, Identifiable, Codable, Sendable
     }
 }
 
+// MARK: - Tab Layout Style
+
+enum TabLayoutStyle: String, CaseIterable, Identifiable, Codable, Sendable {
+    case standard = "Standard"
+    case compact = "Compact"
+    case vertical = "Vertical"
+
+    var id: String { rawValue }
+
+    var headerHeight: CGFloat {
+        switch self {
+        case .standard: return 56
+        case .compact: return 42
+        case .vertical: return 42
+        }
+    }
+}
+
 // MARK: - Appearance Mode
 
 enum AppearanceMode: String, CaseIterable, Identifiable, Codable, Sendable {
@@ -131,6 +149,7 @@ final class BrowserSettings: ObservableObject {
         static let autoplayEnabled    = "autoplayEnabled"
         static let homepageURL        = "homepageURL"
         static let appearanceMode     = "appearanceMode"
+        static let layoutStyle        = "layoutStyle"
     }
 
     // MARK: - Published properties backed by @AppStorage
@@ -144,6 +163,7 @@ final class BrowserSettings: ObservableObject {
     @AppStorage(Keys.autoplayEnabled)    var autoplayEnabled: Bool = false
     @AppStorage(Keys.homepageURL)        var homepageURL: String = ""
     @AppStorage(Keys.appearanceMode)     var appearanceMode: AppearanceMode = .system
+    @AppStorage(Keys.layoutStyle)        var layoutStyle: TabLayoutStyle = .standard
 
     // MARK: - Helpers
 

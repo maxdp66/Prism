@@ -26,30 +26,30 @@ struct WebContentView: NSViewRepresentable {
     }
     
     private func applyInsets(to webView: WKWebView) {
-        let topPadding: CGFloat = 72
+        let headerHeight: CGFloat = 82
 
         if let scrollView = webView.enclosingScrollView {
-            let contentInset = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
+            let contentInset = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
             scrollView.contentInsets = contentInset
             scrollView.verticalScrollElasticity = .none
         }
 
-        webView.additionalSafeAreaInsets = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
+        webView.additionalSafeAreaInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        let topPadding: CGFloat = 72
+        let headerHeight: CGFloat = 82
         
         if let scrollView = nsView.enclosingScrollView {
-            let contentInset = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
-            if scrollView.contentInsets.top != topPadding {
+            let contentInset = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+            if scrollView.contentInsets.top != headerHeight {
                 scrollView.contentInsets = contentInset
                 scrollView.verticalScrollElasticity = .none
             }
         }
         
-        let safeAreaInsets = NSEdgeInsets(top: topPadding, left: 0, bottom: 0, right: 0)
-        if nsView.additionalSafeAreaInsets.top != topPadding {
+        let safeAreaInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+        if nsView.additionalSafeAreaInsets.top != headerHeight {
             nsView.additionalSafeAreaInsets = safeAreaInsets
         }
     }
@@ -74,7 +74,7 @@ struct WebContentContainer: NSViewRepresentable {
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
 
-        let headerHeight: CGFloat = 88
+        let headerHeight: CGFloat = 82
         if let scrollView = webView.enclosingScrollView {
             scrollView.contentInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
             scrollView.verticalScrollElasticity = .none
@@ -85,7 +85,7 @@ struct WebContentContainer: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        let headerHeight: CGFloat = 88
+        let headerHeight: CGFloat = 82
         if let scrollView = webView.enclosingScrollView {
             scrollView.contentInsets = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
             scrollView.verticalScrollElasticity = .none
