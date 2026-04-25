@@ -1,0 +1,9 @@
+! EasyList Test
+||doubleclick.net^
+||googlesyndication.com^
+||google-analytics.com^
+||facebook.net/tr
+||advertisement.com
+@@||whitelist.com^
+example.com##.ad-banner
+example.com##.sidebar-ad
