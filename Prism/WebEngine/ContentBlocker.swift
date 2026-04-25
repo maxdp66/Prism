@@ -8,10 +8,24 @@ final class ContentBlocker {
     static let shared = ContentBlocker()
 
     private let ruleListIdentifier = "com.prism.contentblocker.v2"
+    
+    private let defaultRulesFileName = "blockerRules.json"
 
     // MARK: - Rule list JSON
 
-    private let rulesJSON: String = """
+    private var rulesJSON: String {
+        if let url = Bundle.main.url(forResource: defaultRulesFileName, withExtension: nil),
+           let data = try? Data(contentsOf: url),
+           let jsonString = String(data: data, encoding: .utf8) {
+            print("[Prism] Loaded content blocking rules from bundle: \(defaultRulesFileName)")
+            return jsonString
+        }
+        
+        print("[Prism] Using fallback content blocking rules (bundle file not found)")
+        return fallbackRulesJSON
+    }
+
+    private let fallbackRulesJSON: String = """
     [
       {
         "trigger": { "url-filter": ".*\\\\.doubleclick\\\\.net.*" },
@@ -166,6 +180,15 @@ final class ContentBlocker {
                     continuation.resume(throwing: ContentBlockerError.compilationFailed)
                 }
             }
+        }
+    }
+
+    func reload() async {
+        do {
+            _ = try await loadRuleList()
+            print("[Prism] ContentBlocker reloaded successfully")
+        } catch {
+            print("[Prism] ContentBlocker reload failed: \(error)")
         }
     }
 

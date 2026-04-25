@@ -17,9 +17,36 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
 
+                if settings.searchEngine == .searxng {
+                    TextField("SearXNG Instance URL", text: $settings.searxngURL)
+                        .textFieldStyle(.roundedBorder)
+                        .foregroundColor(.primary)
+                    Text("e.g., searx.org, search.bahai.org, my-instance.example.com")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
                 TextField("Homepage URL", text: $settings.homepageURL)
                     .textFieldStyle(.roundedBorder)
                     .foregroundColor(.primary)
+            }
+
+            // MARK: Autocomplete
+            Section("Autocomplete") {
+                Picker("Provider", selection: $settings.autocompleteProvider) {
+                    ForEach(AutocompleteProvider.allCases) { provider in
+                        Text(provider.rawValue).tag(provider)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                if settings.autocompleteProvider == .brave {
+                    SecureField("Brave API Key", text: $settings.autocompleteAPIKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Get your free API key at api.search.brave.com")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             // MARK: Privacy

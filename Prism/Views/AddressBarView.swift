@@ -13,6 +13,8 @@ struct AddressBarView: View {
     @State private var isEditing: Bool = false
     @State private var isHovered: Bool = false
     @State private var showPrivacyPopover = false
+    @State private var suggestions: [String] = []
+    @State private var barFrame: CGRect = .zero
     @FocusState private var isFocused: Bool
 
     var activeTab: BrowserTab? { browserState.activeTab }
@@ -22,11 +24,33 @@ struct AddressBarView: View {
     }
 
     var body: some View {
+        ZStack(alignment: .top) {
+            addressBarContent
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .preference(key: FramePrefKey.self, value: geo.frame(in: .global))
+                    }
+                )
+                .onPreferenceChange(FramePrefKey.self) { newFrame in
+                    barFrame = newFrame
+                }
+                .zIndex(0)
+
+            if isFocused && !suggestions.isEmpty {
+                suggestionsList
+                    .frame(width: barFrame.width)
+                    .position(x: barFrame.midX, y: barFrame.maxY + 8 + 100)
+                    .zIndex(999)
+            }
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: suggestions.isEmpty)
+    }
+
+    private var addressBarContent: some View {
         HStack(spacing: 6) {
-            // Security lock / globe icon
             securityIcon
 
-            // URL / search field
             ZStack(alignment: .leading) {
                 if !isEditing {
                     displayLabel
@@ -45,16 +69,23 @@ struct AddressBarView: View {
                         }
                         if focused {
                             editingText = activeTab?.displayURL ?? ""
+                        } else {
+                            suggestions = []
+                        }
+                    }
+                    .onChange(of: editingText) { newValue in
+                        if isFocused && settings.autocompleteProvider != .none && newValue.count >= 2 {
+                            fetchAutocomplete(for: newValue)
+                        } else {
+                            suggestions = []
                         }
                     }
             }
 
             Spacer(minLength: 0)
 
-            // Privacy shield
             privacyShield
 
-            // Bookmark button
             bookmarkButton
         }
         .padding(.horizontal, 8)
@@ -77,7 +108,6 @@ struct AddressBarView: View {
         .onTapGesture {
             isFocused = true
         }
-        // cmd+L shortcut
         .background(
             Button("") {
                 isFocused = true
@@ -215,13 +245,68 @@ struct AddressBarView: View {
         .opacity(url.isEmpty ? 0 : 1)
     }
 
+    @ViewBuilder
+    private var suggestionsList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(suggestions, id: \.self) { suggestion in
+                Button {
+                    editingText = suggestion
+                    suggestions = []
+                    commit()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .frame(width: 16)
+
+                        Text(suggestion)
+                            .font(.system(size: 13))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 6)
+    }
+
+    private func fetchAutocomplete(for query: String) {
+        AutocompleteService.shared.fetchSuggestions(
+            for: query,
+            provider: settings.autocompleteProvider,
+            customURL: settings.searchEngine == .searxng ? settings.searxngURL : nil,
+            apiKey: settings.autocompleteAPIKey.isEmpty ? nil : settings.autocompleteAPIKey
+        ) { results in
+            self.suggestions = results
+        }
+    }
+
     // MARK: Actions
 
     private func commit() {
         let text = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
         isFocused = false
+        suggestions = []
         if !text.isEmpty {
             browserState.activeTab?.navigate(to: text)
         }
+    }
+}
+
+// MARK: - Frame Preference Key
+
+private struct FramePrefKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }

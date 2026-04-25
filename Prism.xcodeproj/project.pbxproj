@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		B1000001000000000000001A /* PrismApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000001A /* PrismApp.swift */; };
 		B1000001000000000000002A /* BrowserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002A /* BrowserState.swift */; };
-	B1000001000000000000002B /* BrowserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002B /* BrowserSettings.swift */; };
+		B1000001000000000000002B /* BrowserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002B /* BrowserSettings.swift */; };
 		B1000001000000000000003A /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000003A /* BrowserTab.swift */; };
 		B1000001000000000000004A /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000004A /* Bookmark.swift */; };
 		B1000001000000000000005A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000005A /* ContentView.swift */; };
@@ -18,9 +18,13 @@
 		B1000001000000000000008A /* WebContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000008A /* WebContentView.swift */; };
 		B1000001000000000000009A /* NewTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000009A /* NewTabView.swift */; };
 		B100000100000000000000AA /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000AA /* SidebarView.swift */; };
-	B100000100000000000000AB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000AB /* SettingsView.swift */; };
+		B100000100000000000000AB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000AB /* SettingsView.swift */; };
 		B100000100000000000000BA /* ContentBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BA /* ContentBlocker.swift */; };
-		B100000100000000000000CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000CA /* Assets.xcassets */; };
+		B100000100000000000000BB /* AutocompleteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BC /* AutocompleteService.swift */; };
+		B100000100000000000000BD /* FilterList.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BD /* FilterList.swift */; };
+		B100000100000000000000BE /* FilterListManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BE /* FilterListManager.swift */; };
+		B100000100000000000000BF /* PrivacyShieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BF /* PrivacyShieldView.swift */; };
+		B100000100000000000000CC /* blockerRules.json in Resources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000CB /* blockerRules.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,7 +41,12 @@
 		B100000200000000000000AA /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 	B100000200000000000000AB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B100000200000000000000BA /* ContentBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlocker.swift; sourceTree = "<group>"; };
+		B100000200000000000000BC /* AutocompleteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteService.swift; sourceTree = "<group>"; };
+		B100000200000000000000BD /* FilterList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterList.swift; sourceTree = "<group>"; };
+		B100000200000000000000BE /* FilterListManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterListManager.swift; sourceTree = "<group>"; };
+		B100000200000000000000BF /* PrivacyShieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyShieldView.swift; sourceTree = "<group>"; };
 		B100000200000000000000CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B100000200000000000000CB /* blockerRules.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = blockerRules.json; sourceTree = "<group>"; };
 		B100000200000000000000DA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B100000200000000000000EA /* Prism.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Prism.entitlements; sourceTree = "<group>"; };
 		B100000200000000000000FA /* Prism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prism.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -70,6 +79,7 @@
 				B10000040000000000000003 /* Models */,
 				B10000040000000000000004 /* Views */,
 				B10000040000000000000005 /* WebEngine */,
+				B10000040000000000000011 /* Resources */,
 				B100000200000000000000CA /* Assets.xcassets */,
 				B100000200000000000000DA /* Info.plist */,
 				B100000200000000000000EA /* Prism.entitlements */,
@@ -83,6 +93,9 @@
 				B1000002000000000000003A /* BrowserTab.swift */,
 				B1000002000000000000004A /* Bookmark.swift */,
 				B1000002000000000000002B /* BrowserSettings.swift */,
+				B100000200000000000000BC /* AutocompleteService.swift */,
+				B100000200000000000000BD /* FilterList.swift */,
+				B100000200000000000000BE /* FilterListManager.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -97,6 +110,7 @@
 				B1000002000000000000009A /* NewTabView.swift */,
 				B100000200000000000000AA /* SidebarView.swift */,
 				B100000200000000000000AB /* SettingsView.swift */,
+				B100000200000000000000BF /* PrivacyShieldView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -107,6 +121,14 @@
 				B100000200000000000000BA /* ContentBlocker.swift */,
 			);
 			path = WebEngine;
+			sourceTree = "<group>";
+		};
+		B10000040000000000000011 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B100000200000000000000CB /* blockerRules.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		B10000040000000000000010 /* Products */ = {
@@ -176,6 +198,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B100000100000000000000CA /* Assets.xcassets in Resources */,
+				B100000100000000000000CC /* blockerRules.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -199,6 +222,7 @@
 			B100000100000000000000AA /* SidebarView.swift in Sources */,
 			B100000100000000000000AB /* SettingsView.swift in Sources */,
 			B100000100000000000000BA /* ContentBlocker.swift in Sources */,
+			B100000100000000000000BB /* AutocompleteService.swift in Sources */,
 		);
 		runOnlyForDeploymentPostprocessing = 0;
 		};

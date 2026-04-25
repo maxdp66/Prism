@@ -114,14 +114,15 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     private func resolveURL(from input: String) -> URL? {
         // Already a valid URL with scheme
-        if let url = URL(string: input), url.scheme != nil && !url.scheme!.isEmpty {
-            if url.scheme == "about" || url.host != nil {
+        if let url = URL(string: input), let scheme = url.scheme, !scheme.isEmpty {
+            if scheme == "about" || url.host != nil {
                 return url
             }
         }
 
-        // Looks like a domain (contains a dot, no spaces)
-        if !input.contains(" ") {
+        // Looks like a domain (contains a dot, no spaces, and has a plausible TLD)
+        let domainTLDs = [".com", ".org", ".net", ".edu", ".gov", ".io", ".co", ".ai", ".app", ".dev"]
+        if !input.contains(" ") && domainTLDs.contains(where: { input.lowercased().contains($0) }) {
             let candidate = input.hasPrefix("http://") || input.hasPrefix("https://") ? input : "https://\(input)"
             if let url = URL(string: candidate), url.host != nil {
                 return url
@@ -129,7 +130,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
         }
 
         // Fall through to selected search engine
-        return settings.searchQueryURL(for: input)
+        let searchURL = settings.searchQueryURL(for: input)
+        return searchURL
     }
 
     func goBack()    { webView.goBack() }
