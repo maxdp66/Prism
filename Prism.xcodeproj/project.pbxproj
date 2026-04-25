@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		B1000001000000000000001A /* PrismApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000001A /* PrismApp.swift */; };
 		B1000001000000000000002A /* BrowserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002A /* BrowserState.swift */; };
+	B1000001000000000000002B /* BrowserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002B /* BrowserSettings.swift */; };
 		B1000001000000000000003A /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000003A /* BrowserTab.swift */; };
 		B1000001000000000000004A /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000004A /* Bookmark.swift */; };
 		B1000001000000000000005A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000005A /* ContentView.swift */; };
@@ -17,6 +18,7 @@
 		B1000001000000000000008A /* WebContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000008A /* WebContentView.swift */; };
 		B1000001000000000000009A /* NewTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000009A /* NewTabView.swift */; };
 		B100000100000000000000AA /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000AA /* SidebarView.swift */; };
+	B100000100000000000000AB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000AB /* SettingsView.swift */; };
 		B100000100000000000000BA /* ContentBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BA /* ContentBlocker.swift */; };
 		B100000100000000000000CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000CA /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -24,6 +26,7 @@
 /* Begin PBXFileReference section */
 		B1000002000000000000001A /* PrismApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrismApp.swift; sourceTree = "<group>"; };
 		B1000002000000000000002A /* BrowserState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserState.swift; sourceTree = "<group>"; };
+	B1000002000000000000002B /* BrowserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserSettings.swift; sourceTree = "<group>"; };
 		B1000002000000000000003A /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
 		B1000002000000000000004A /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
 		B1000002000000000000005A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -32,6 +35,7 @@
 		B1000002000000000000008A /* WebContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentView.swift; sourceTree = "<group>"; };
 		B1000002000000000000009A /* NewTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTabView.swift; sourceTree = "<group>"; };
 		B100000200000000000000AA /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+	B100000200000000000000AB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B100000200000000000000BA /* ContentBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlocker.swift; sourceTree = "<group>"; };
 		B100000200000000000000CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B100000200000000000000DA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -78,6 +82,7 @@
 			children = (
 				B1000002000000000000003A /* BrowserTab.swift */,
 				B1000002000000000000004A /* Bookmark.swift */,
+				B1000002000000000000002B /* BrowserSettings.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -91,6 +96,7 @@
 				B1000002000000000000008A /* WebContentView.swift */,
 				B1000002000000000000009A /* NewTabView.swift */,
 				B100000200000000000000AA /* SidebarView.swift */,
+				B100000200000000000000AB /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -177,22 +183,24 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		B10000070000000000000001 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B1000001000000000000001A /* PrismApp.swift in Sources */,
-				B1000001000000000000002A /* BrowserState.swift in Sources */,
-				B1000001000000000000003A /* BrowserTab.swift in Sources */,
-				B1000001000000000000004A /* Bookmark.swift in Sources */,
-				B1000001000000000000005A /* ContentView.swift in Sources */,
-				B1000001000000000000006A /* AddressBarView.swift in Sources */,
-				B1000001000000000000007A /* TabBarView.swift in Sources */,
-				B1000001000000000000008A /* WebContentView.swift in Sources */,
-				B1000001000000000000009A /* NewTabView.swift in Sources */,
-				B100000100000000000000AA /* SidebarView.swift in Sources */,
-				B100000100000000000000BA /* ContentBlocker.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
+		isa = PBXSourcesBuildPhase;
+		buildActionMask = 2147483647;
+		files = (
+			B1000001000000000000001A /* PrismApp.swift in Sources */,
+			B1000001000000000000002A /* BrowserState.swift in Sources */,
+			B1000001000000000000002B /* BrowserSettings.swift in Sources */,
+			B1000001000000000000003A /* BrowserTab.swift in Sources */,
+			B1000001000000000000004A /* Bookmark.swift in Sources */,
+			B1000001000000000000005A /* ContentView.swift in Sources */,
+			B1000001000000000000006A /* AddressBarView.swift in Sources */,
+			B1000001000000000000007A /* TabBarView.swift in Sources */,
+			B1000001000000000000008A /* WebContentView.swift in Sources */,
+			B1000001000000000000009A /* NewTabView.swift in Sources */,
+			B100000100000000000000AA /* SidebarView.swift in Sources */,
+			B100000100000000000000AB /* SettingsView.swift in Sources */,
+			B100000100000000000000BA /* ContentBlocker.swift in Sources */,
+		);
+		runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
