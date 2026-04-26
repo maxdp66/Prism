@@ -95,15 +95,12 @@ private var webContentSection: some View {
                 }
 
                 if let tab = browserState.activeTab {
-                    if tab.displayURL.isEmpty && !tab.isLoading {
-                        NewTabView(clearSuggestions: { suggestions = [] })
-                            .environmentObject(browserState)
-                            .environmentObject(settings)
-                            .id(tab.id)
-                    } else {
-                        WebContentContainer(webView: tab.webView)
-                            .id(tab.id)
-                    }
+                    ActiveTabView(
+                        tab: tab,
+                        clearSuggestions: { suggestions = [] }
+                    )
+                    .environmentObject(browserState)
+                    .environmentObject(settings)
                 } else {
                     NewTabView(clearSuggestions: { suggestions = [] })
                         .environmentObject(browserState)
@@ -151,7 +148,7 @@ private var webContentSection: some View {
                     suggestionsHeight: $suggestionsHeight,
                     selectedIndex: $selectedSuggestionIndex,
                     onSelect: { suggestion in
-                        browserState.activeTab?.navigate(to: suggestion.text, grabFocus: true)
+                        browserState.activeTab?.navigate(to: suggestion.text)
                         suggestions = []
                     }
                 )

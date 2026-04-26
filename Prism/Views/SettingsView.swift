@@ -87,6 +87,8 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                Toggle("Show Website Name Only in Tabs", isOn: $settings.showWebsiteNameOnly)
             }
         }
         .formStyle(.grouped)

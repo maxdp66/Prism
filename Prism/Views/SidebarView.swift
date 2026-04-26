@@ -89,9 +89,9 @@ struct SidebarView: View {
 
             // Bookmark list
             List {
-                ForEach(filteredBookmarks) { bookmark in
+                ForEach(filteredBookmarks) {                     bookmark in
                     BookmarkRowView(bookmark: bookmark) {
-                        browserState.activeTab?.navigate(to: bookmark.url, grabFocus: true)
+                        browserState.activeTab?.navigate(to: bookmark.url)
                     }
                     .contextMenu {
                         Button("Delete", role: .destructive) {

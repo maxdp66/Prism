@@ -84,7 +84,9 @@ struct NewTabView: View {
                                 url: link.url
                             ) {
                                 clearSuggestions()
-                                browserState.activeTab?.navigate(to: link.url, grabFocus: true)
+                                browserState.activeTab?.navigate(to: link.url)
+                                // Clear focused tab to show tab display instead of address bar
+                                browserState.focusedTabId = nil
                             }
                         }
                     }
@@ -109,7 +111,9 @@ struct NewTabView: View {
         guard !query.isEmpty else { return }
         clearSuggestions()
         searchFocused = false
-        browserState.activeTab?.navigate(to: query, grabFocus: true)
+        browserState.activeTab?.navigate(to: query)
+        // Clear focused tab to show tab display instead of address bar
+        browserState.focusedTabId = nil
         searchText = ""
     }
 }

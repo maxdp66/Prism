@@ -17,6 +17,8 @@ final class BrowserState: ObservableObject {
     @Published var isContentBlockerReady: Bool = false
     @Published var contentBlockerError: String? = nil
     @Published var settingsChangedNeedsReload: Bool = false
+    /// Counter that increments when any tab's properties change, used to trigger view updates
+    @Published var tabUpdateCounter: Int = 0
 
     private let sidebarVisibleKey = "com.prism.sidebarVisible"
 
@@ -155,13 +157,30 @@ final class BrowserState: ObservableObject {
     func addNewTabAndGetId(url: URL? = nil) -> UUID {
         let tab = BrowserTab(configuration: sharedConfiguration, settings: settings)
         tabs.append(tab)
-        activateTab(tab)
-        focusedTabId = tab.id
-
+        
+        // Subscribe to tab property changes to trigger view updates
+        subscribeToTabChanges(tab)
+        
+        // Set displayURL BEFORE activation when navigating to a URL
+        // This ensures ContentView shows WebContentView instead of NewTabView
         if let url {
+            tab.displayURL = url.absoluteString
             tab.webView.load(URLRequest(url: url))
         }
+        
+        activateTab(tab)
+        focusedTabId = tab.id
         return tab.id
+    }
+    
+    private func subscribeToTabChanges(_ tab: BrowserTab) {
+        print("[BrowserState] Subscribing to tab \(tab.id.uuidString.prefix(8)) changes")
+        tab.objectWillChange
+            .sink { [weak self] _ in
+                print("[BrowserState] Tab \(tab.id.uuidString.prefix(8)) changed, incrementing counter")
+                self?.tabUpdateCounter += 1
+            }
+            .store(in: &cancellables)
     }
 
     private var closedTabURLs: [URL] = []

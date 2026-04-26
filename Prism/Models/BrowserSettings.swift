@@ -150,6 +150,7 @@ final class BrowserSettings: ObservableObject {
         static let homepageURL        = "homepageURL"
         static let appearanceMode     = "appearanceMode"
         static let layoutStyle        = "layoutStyle"
+        static let showWebsiteNameOnly = "showWebsiteNameOnly"
     }
 
     // MARK: - Published properties backed by @AppStorage
@@ -164,6 +165,7 @@ final class BrowserSettings: ObservableObject {
     @AppStorage(Keys.homepageURL)        var homepageURL: String = ""
     @AppStorage(Keys.appearanceMode)     var appearanceMode: AppearanceMode = .system
     @AppStorage(Keys.layoutStyle)        var layoutStyle: TabLayoutStyle = .standard
+    @AppStorage(Keys.showWebsiteNameOnly) var showWebsiteNameOnly: Bool = false
 
     // MARK: - Helpers
 

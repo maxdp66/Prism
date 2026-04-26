@@ -70,6 +70,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     // MARK: - Deinit
 
     deinit {
+        Task { @MainActor [weak self] in
+            self?.webView.stopLoading()
+        }
         cancellables.removeAll()
     }
 
@@ -81,8 +84,15 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] url in
                 guard let self else { return }
-                self.displayURL = url?.absoluteString ?? ""
-                self.isSecure = url?.scheme?.lowercased() == "https"
+                // Only update displayURL if we have a valid, non-empty URL
+                // Don't overwrite with empty string during provisional navigation
+                if let url = url, !url.absoluteString.isEmpty {
+                    // Skip about:blank URLs - they're transitional states
+                    if url.scheme != "about" {
+                        self.displayURL = url.absoluteString
+                        self.isSecure = (url.scheme ?? "").lowercased() == "https"
+                    }
+                }
             }
             .store(in: &cancellables)
 
@@ -143,20 +153,14 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
     // MARK: - Navigation
 
-    func navigate(to input: String, grabFocus: Bool = false) {
+    func navigate(to input: String) {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         if let url = resolveURL(from: trimmed) {
             displayURL = url.absoluteString
+            isLoading = true  // Force isLoading to true to trigger view switch
             webView.load(URLRequest(url: url))
-
-            if grabFocus {
-                Task { @MainActor in
-                    guard self.webView.window != nil else { return }
-                    self.webView.window?.makeFirstResponder(self.webView)
-                }
-            }
         }
     }
 

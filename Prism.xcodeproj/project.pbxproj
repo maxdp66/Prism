@@ -25,7 +25,10 @@
 		B100000100000000000000BD /* FilterList.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BD /* FilterList.swift */; };
 		B100000100000000000000BE /* FilterListManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BE /* FilterListManager.swift */; };
 		B100000100000000000000BF /* PrivacyShieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000BF /* PrivacyShieldView.swift */; };
-		B100000100000000000000C2 /* CompactTabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C2 /* CompactTabBarView.swift */; };
+		B100000100000000000000C3 /* CompactTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C3 /* CompactTabBar.swift */; };
+		B100000100000000000000C4 /* WindowAccessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C4 /* WindowAccessor.swift */; };
+		B100000100000000000000C5 /* CompactTabItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C5 /* CompactTabItem.swift */; };
+		B100000100000000000000C6 /* ActiveTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C6 /* ActiveTabView.swift */; };
 		B100000100000000000000CC /* blockerRules.json in Resources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000CB /* blockerRules.json */; };
 /* End PBXBuildFile section */
 
@@ -48,7 +51,10 @@
 		B100000200000000000000BD /* FilterList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterList.swift; sourceTree = "<group>"; };
 		B100000200000000000000BE /* FilterListManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterListManager.swift; sourceTree = "<group>"; };
 		B100000200000000000000BF /* PrivacyShieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyShieldView.swift; sourceTree = "<group>"; };
-		B100000200000000000000C2 /* CompactTabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactTabBarView.swift; sourceTree = "<group>"; };
+		B100000200000000000000C3 /* CompactTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactTabBar.swift; sourceTree = "<group>"; };
+		B100000200000000000000C4 /* WindowAccessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowAccessor.swift; sourceTree = "<group>"; };
+		B100000200000000000000C5 /* CompactTabItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactTabItem.swift; sourceTree = "<group>"; };
+		B100000200000000000000C6 /* ActiveTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTabView.swift; sourceTree = "<group>"; };
 		B100000200000000000000CA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B100000200000000000000CB /* blockerRules.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = blockerRules.json; sourceTree = "<group>"; };
 		B100000200000000000000DA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -116,7 +122,10 @@
 				B100000200000000000000AA /* SidebarView.swift */,
 				B100000200000000000000AB /* SettingsView.swift */,
 				B100000200000000000000BF /* PrivacyShieldView.swift */,
-				B100000200000000000000C2 /* CompactTabBarView.swift */,
+				B100000200000000000000C3 /* CompactTabBar.swift */,
+				B100000200000000000000C4 /* WindowAccessor.swift */,
+				B100000200000000000000C5 /* CompactTabItem.swift */,
+				B100000200000000000000C6 /* ActiveTabView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -230,7 +239,10 @@
 			B100000100000000000000BA /* ContentBlocker.swift in Sources */,
 			B100000100000000000000BB /* AutocompleteService.swift in Sources */,
 			B100000100000000000000C1 /* HistoryStore.swift in Sources */,
-			B100000100000000000000C2 /* CompactTabBarView.swift in Sources */,
+			B100000100000000000000C3 /* CompactTabBar.swift in Sources */,
+			B100000100000000000000C4 /* WindowAccessor.swift in Sources */,
+			B100000100000000000000C5 /* CompactTabItem.swift in Sources */,
+			B100000100000000000000C6 /* ActiveTabView.swift in Sources */,
 		);
 		runOnlyForDeploymentPostprocessing = 0;
 		};

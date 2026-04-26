@@ -313,12 +313,12 @@ struct AddressBarView: View {
             let selected = suggestions[index]
             selectedSuggestionIndex = nil
             suggestions = []
-            browserState.activeTab?.navigate(to: selected.text, grabFocus: true)
+            browserState.activeTab?.navigate(to: selected.text)
         } else {
             suggestions = []
             selectedSuggestionIndex = nil
             if !text.isEmpty {
-                browserState.activeTab?.navigate(to: text, grabFocus: true)
+                browserState.activeTab?.navigate(to: text)
             }
         }
     }
