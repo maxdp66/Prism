@@ -30,6 +30,10 @@
 		B100000100000000000000C5 /* CompactTabItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C5 /* CompactTabItem.swift */; };
 		B100000100000000000000C6 /* ActiveTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000C6 /* ActiveTabView.swift */; };
 		B100000100000000000000CC /* blockerRules.json in Resources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000CB /* blockerRules.json */; };
+		B100000100000000000000D1 /* QuickLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000D1 /* QuickLink.swift */; };
+		B100000100000000000000D2 /* QuickLinkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000D2 /* QuickLinkStore.swift */; };
+		B100000100000000000000D3 /* FaviconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000D3 /* FaviconCache.swift */; };
+		B100000100000000000000D4 /* QuickLinkEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000D4 /* QuickLinkEditView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +64,10 @@
 		B100000200000000000000DA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B100000200000000000000EA /* Prism.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Prism.entitlements; sourceTree = "<group>"; };
 		B100000200000000000000FA /* Prism.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prism.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B100000200000000000000D1 /* QuickLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLink.swift; sourceTree = "<group>"; };
+		B100000200000000000000D2 /* QuickLinkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLinkStore.swift; sourceTree = "<group>"; };
+		B100000200000000000000D3 /* FaviconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconCache.swift; sourceTree = "<group>"; };
+		B100000200000000000000D4 /* QuickLinkEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLinkEditView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +115,9 @@
 				B100000200000000000000BD /* FilterList.swift */,
 				B100000200000000000000BE /* FilterListManager.swift */,
 				B100000200000000000000C1 /* HistoryStore.swift */,
+				B100000200000000000000D1 /* QuickLink.swift */,
+				B100000200000000000000D2 /* QuickLinkStore.swift */,
+				B100000200000000000000D3 /* FaviconCache.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -126,6 +137,7 @@
 				B100000200000000000000C4 /* WindowAccessor.swift */,
 				B100000200000000000000C5 /* CompactTabItem.swift */,
 				B100000200000000000000C6 /* ActiveTabView.swift */,
+				B100000200000000000000D4 /* QuickLinkEditView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -243,6 +255,10 @@
 			B100000100000000000000C4 /* WindowAccessor.swift in Sources */,
 			B100000100000000000000C5 /* CompactTabItem.swift in Sources */,
 			B100000100000000000000C6 /* ActiveTabView.swift in Sources */,
+			B100000100000000000000D1 /* QuickLink.swift in Sources */,
+			B100000100000000000000D2 /* QuickLinkStore.swift in Sources */,
+			B100000100000000000000D3 /* FaviconCache.swift in Sources */,
+			B100000100000000000000D4 /* QuickLinkEditView.swift in Sources */,
 		);
 		runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -6,23 +6,16 @@ struct NewTabView: View {
 
     @EnvironmentObject var browserState: BrowserState
     @EnvironmentObject private var settings: BrowserSettings
+    @StateObject private var quickLinkStore = QuickLinkStore.shared
 
     @State private var searchText: String = ""
     @FocusState private var searchFocused: Bool
 
-    let clearSuggestions: () -> Void
+    // Edit state
+    @State private var editingLink: QuickLink? = nil
+    @State private var showingAddLink = false
 
-    // Quick-access tiles
-    private let quickLinks: [(title: String, url: String)] = [
-        ("GitHub",       "https://github.com"),
-        ("YouTube",      "https://youtube.com"),
-        ("Hacker News",  "https://news.ycombinator.com"),
-        ("Wikipedia",    "https://wikipedia.org"),
-        ("DuckDuckGo",   "https://duckduckgo.com"),
-        ("Reddit",       "https://reddit.com"),
-        ("Twitter/X",    "https://x.com"),
-        ("Anthropic",    "https://anthropic.com"),
-    ]
+    let clearSuggestions: () -> Void
 
     private var searchPlaceholder: String {
         "Search \(settings.searchEngine.rawValue) or enter a URL"
@@ -68,25 +61,46 @@ struct NewTabView: View {
 
                 // Quick-access grid
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("QUICK ACCESS")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.5))
-                        .tracking(1.5)
-                        .frame(maxWidth: 580, alignment: .leading)
+                    HStack {
+                        Text("QUICK ACCESS")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .tracking(1.5)
+
+                        Spacer()
+
+                        // Add button
+                        Button(action: { showingAddLink = true }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.5))
+                                .frame(width: 20, height: 20)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.1))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .help("Add Quick Link")
+                    }
+                    .frame(maxWidth: 580, alignment: .leading)
 
                     LazyVGrid(
                         columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4),
                         spacing: 10
                     ) {
-                        ForEach(quickLinks, id: \.url) { link in
+                        ForEach(quickLinkStore.quickLinks) { link in
                             QuickLinkTile(
                                 title: link.title,
-                                url: link.url
+                                url: link.url,
+                                link: link
                             ) {
                                 clearSuggestions()
                                 browserState.activeTab?.navigate(to: link.url)
                                 // Clear focused tab to show tab display instead of address bar
                                 browserState.focusedTabId = nil
+                            } onEdit: { linkToEdit in
+                                editingLink = linkToEdit
                             }
                         }
                     }
@@ -97,6 +111,26 @@ struct NewTabView: View {
                 Spacer()
             }
             .padding()
+            .sheet(item: $editingLink) { link in
+                QuickLinkEditView(
+                    link: link,
+                    onSave: { newTitle, newURL in
+                        quickLinkStore.update(link, title: newTitle, url: newURL)
+                    },
+                    onDelete: {
+                        quickLinkStore.remove(link)
+                    },
+                    onCancel: {}
+                )
+            }
+            .sheet(isPresented: $showingAddLink) {
+                QuickLinkAddView(
+                    onSave: { title, url in
+                        quickLinkStore.add(title: title, url: url)
+                    },
+                    onCancel: {}
+                )
+            }
         }
         .onAppear {
             // Focus after first render — .task preferred over DispatchQueue.asyncAfter
@@ -123,78 +157,167 @@ struct NewTabView: View {
 struct QuickLinkTile: View {
     let title: String
     let url: String
+    let link: QuickLink?
     let action: () -> Void
+    let onEdit: (QuickLink) -> Void
 
     @State private var isHovered = false
     @State private var faviconImage: NSImage?
+    @State private var isLoading = false
+    @State private var showContextMenu = false
+    @State private var isEditing = false
+    @State private var longPressTimer: Timer? = nil
+    @State private var isLongPressing = false
 
     private var domain: String {
         URL(string: url)?.host ?? url
     }
 
-    private var faviconURL: URL? {
-        URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64")
-    }
-
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Group {
-                    if let image = faviconImage {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    } else {
-                        Image(systemName: "globe")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white)
+        ZStack {
+            // Button for normal click - handles navigation
+            Button(action: action) {
+                VStack(spacing: 8) {
+                    ZStack {
+                        Group {
+                            if isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                    .progressViewStyle(.circular)
+                                    .tint(.white.opacity(0.5))
+                            } else if let image = faviconImage {
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            } else {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .font(.system(size: 22))
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.white.opacity(isHovered ? 0.22 : 0.14))
+                        )
+
+                        // Edit indicator on hover (not shown during long press)
+                        if isHovered && !isLongPressing {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.7))
+                                .position(x: 38, y: 38)
+                                .shadow(radius: 2)
+                        }
+                        
+                        // Selection indicator on long press - larger pencil icon
+                        if isLongPressing {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundColor(.accentColor)
+                                .shadow(radius: 4)
+                        }
+                    }
+
+                    Text(title)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.85))
+                        .lineLimit(1)
+                }
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(
+                    Group {
+                        if isLongPressing {
+                            // Selected state during long press
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial.opacity(0.6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 2)
+                                )
+                                .shadow(color: .accentColor.opacity(0.4), radius: 12)
+                        } else {
+                            // Normal or hover state
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial.opacity(isHovered ? 0.5 : 0.25))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(Color.white.opacity(isHovered ? 0.3 : 0.1), lineWidth: 1)
+                                )
+                        }
+                    }
+                )
+                .scaleEffect(isLongPressing ? 0.95 : (isHovered ? 1.03 : 1.0))
+                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isHovered)
+                .animation(.spring(response: 0.15, dampingFraction: 0.6), value: isLongPressing)
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                // Only update hover state if not in the process of opening edit sheet
+                if !isEditing {
+                    isHovered = hovering
+                }
+            }
+            .onAppear {
+                loadFavicon()
+            }
+            .contextMenu {
+                if let link = link {
+                    Button {
+                        onEdit(link)
+                    } label: {
+                        Label("Edit Name & URL", systemImage: "pencil")
                     }
                 }
-                .font(.system(size: 22))
-                .foregroundColor(.white)
-                .frame(width: 44, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(isHovered ? 0.22 : 0.14))
-                )
-
-                Text(title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.85))
-                    .lineLimit(1)
             }
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial.opacity(isHovered ? 0.5 : 0.25))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Color.white.opacity(isHovered ? 0.3 : 0.1), lineWidth: 1)
-                    )
-            )
-            .scaleEffect(isHovered ? 1.03 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isHovered)
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .onAppear {
-            loadFavicon()
+            
+            // Invisible overlay for long press detection (doesn't block button clicks)
+            Color.clear
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            // Start long press timer on mouse down if not already running
+                            if longPressTimer == nil && !isEditing {
+                                isLongPressing = true
+                                longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { _ in
+                                    if let link = link {
+                                        // Haptic feedback - trackpad click to indicate edit mode
+                                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                                        // Immediately deselect tile visually and prevent hover state from reactivating
+                                        isEditing = true
+                                        isLongPressing = false
+                                        isHovered = false
+                                        longPressTimer = nil
+                                        onEdit(link)
+                                    }
+                                }
+                            }
+                        }
+                        .onEnded { _ in
+                            // Cancel timer if released before long press duration
+                            longPressTimer?.invalidate()
+                            longPressTimer = nil
+                            isLongPressing = false
+                        }
+                )
         }
     }
 
     private func loadFavicon() {
-        guard let url = faviconURL else { return }
+        guard !domain.isEmpty else { return }
+        isLoading = true
+        
         Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                if let image = NSImage(data: data) {
-                    await MainActor.run {
-                        faviconImage = image
-                    }
+            let image = await FaviconCache.shared.fetchFavicon(for: domain)
+            await MainActor.run {
+                if let image = image {
+                    faviconImage = image
                 }
-            } catch {
-                // Ignore errors, fallback to globe icon
+                isLoading = false
             }
         }
     }

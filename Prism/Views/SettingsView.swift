@@ -5,6 +5,10 @@ import SwiftUI
 struct SettingsView: View {
 
     @EnvironmentObject private var settings: BrowserSettings
+    @StateObject private var quickLinkStore = QuickLinkStore.shared
+
+    @State private var showingAddLink = false
+    @State private var editingLink: QuickLink? = nil
 
     var body: some View {
         Form {
@@ -60,6 +64,52 @@ struct SettingsView: View {
                 Toggle("Autoplay", isOn: $settings.autoplayEnabled)
             }
 
+            // MARK: Quick Access
+            Section("Quick Access") {
+                // Add button
+                HStack {
+                    Button(action: { showingAddLink = true }) {
+                        Label("Add New Link", systemImage: "plus")
+                    }
+
+                    Spacer()
+
+                    Button(role: .destructive) {
+                        quickLinkStore.resetToDefaults()
+                    } label: {
+                        Text("Reset to Defaults")
+                    }
+                    .disabled(quickLinkStore.quickLinks.isEmpty)
+                }
+
+                // Quick links list
+                if quickLinkStore.quickLinks.isEmpty {
+                    Text("No quick links. Add one above!")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(quickLinkStore.quickLinks) { link in
+                        QuickLinkSettingsRow(
+                            link: link,
+                            onDelete: {
+                                withAnimation {
+                                    quickLinkStore.remove(link)
+                                }
+                            },
+                            onEdit: {
+                                editingLink = link
+                            }
+                        )
+                    }
+                    .onMove { source, destination in
+                        withAnimation {
+                            quickLinkStore.move(from: source, to: destination)
+                        }
+                    }
+                }
+            }
+
             // MARK: Appearance
             Section("Appearance") {
                 Picker("Color Scheme", selection: $settings.appearanceMode) {
@@ -94,6 +144,26 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(20)
         .frame(minWidth: 400, minHeight: 300)
+        .sheet(item: $editingLink) { link in
+            QuickLinkEditView(
+                link: link,
+                onSave: { newTitle, newURL in
+                    quickLinkStore.update(link, title: newTitle, url: newURL)
+                },
+                onDelete: {
+                    quickLinkStore.remove(link)
+                },
+                onCancel: {}
+            )
+        }
+        .sheet(isPresented: $showingAddLink) {
+            QuickLinkAddView(
+                onSave: { title, url in
+                    quickLinkStore.add(title: title, url: url)
+                },
+                onCancel: {}
+            )
+        }
     }
 }
 

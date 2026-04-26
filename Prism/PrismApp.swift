@@ -7,6 +7,7 @@ struct PrismApp: App {
     @StateObject private var browserState = BrowserState()
     @StateObject private var bookmarkStore = BookmarkStore.shared
     @StateObject private var settings = BrowserSettings.shared
+    @StateObject private var quickLinkStore = QuickLinkStore.shared
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
@@ -16,6 +17,7 @@ struct PrismApp: App {
                 .environmentObject(browserState)
                 .environmentObject(bookmarkStore)
                 .environmentObject(settings)
+                .environmentObject(quickLinkStore)
                 .onAppear {
                     NSApp.windows.forEach { window in
                         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
@@ -112,6 +114,7 @@ struct PrismApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settings)
+                .environmentObject(quickLinkStore)
                 .preferredColorScheme(settings.appearanceMode.colorScheme)
                 .animation(.easeInOut(duration: 0.3), value: settings.appearanceMode)
         }
