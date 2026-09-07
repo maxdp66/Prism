@@ -422,20 +422,15 @@ private final class FaviconLoader {
             }
 
             let task = session.dataTask(with: url) { [weak self] data, _, error in
-                let image: NSImage?
-                if let data = data, let img = NSImage(data: data), error == nil {
-                    Task { @MainActor in
-                        faviconCache.setObject(img, forKey: cacheKey as NSString)
+                let callbacks = self?.inFlightQueue.sync {
+                    self?.inFlight.removeValue(forKey: url) ?? []
+                } ?? []
+                Task { @MainActor in
+                    let image: NSImage? = (error == nil) ? data.flatMap { NSImage(data: $0) } : nil
+                    if let image {
+                        faviconCache.setObject(image, forKey: cacheKey as NSString)
                     }
-                    image = img
-                } else {
-                    image = nil
-                }
-                self?.inFlightQueue.sync {
-                    let callbacks = self?.inFlight.removeValue(forKey: url) ?? []
-                    DispatchQueue.main.async {
-                        callbacks.forEach { $0(image) }
-                    }
+                    callbacks.forEach { $0(image) }
                 }
             }
             task.resume()
