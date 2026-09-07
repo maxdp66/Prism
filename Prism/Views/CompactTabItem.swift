@@ -10,6 +10,9 @@ struct CompactTabItem: View {
     @EnvironmentObject var bookmarkStore: BookmarkStore
     @EnvironmentObject private var settings: BrowserSettings
 
+    /// Visual displacement applied when another tab is being dragged past this one.
+    let displacement: CGFloat
+
     @Binding var barFrame: CGRect
     @Binding var suggestions: [Suggestion]
     @Binding var suggestionsHeight: CGFloat
@@ -17,12 +20,22 @@ struct CompactTabItem: View {
 
     let onFocus: () -> Void
     let onBlur: () -> Void
+    /// Called each drag frame with the current translation so CompactTabBar can
+    /// update displacements without publishing through BrowserState.
+    let onDragUpdate: (CGFloat) -> Void
+    /// Called when the drag gesture ends so CompactTabBar can reset local displacement state.
+    let onDragEnd: () -> Void
 
     @State private var editingText: String = ""
     @State private var isHovered: Bool = false
     @FocusState private var addressBarFocused: Bool
     @State private var autocompleteTask: Task<Void, Never>?
-    @State private var viewUpdateTrigger: Int = 0  // Force view updates
+    @State private var viewUpdateTrigger: Int = 0
+    
+    // Drag state
+    @State private var isDragging = false
+    @State private var dragOffset: CGFloat = 0.0
+    @State private var dragStartLocation: CGPoint = .zero
 
     private var isActive: Bool {
         browserState.activeTabId == tab.id
@@ -30,6 +43,10 @@ struct CompactTabItem: View {
 
     private var isFocused: Bool {
         browserState.focusedTabId == tab.id
+    }
+    
+    private var isBeingDragged: Bool {
+        browserState.draggingTabId == tab.id
     }
 
     private var searchPlaceholder: String {
@@ -39,10 +56,6 @@ struct CompactTabItem: View {
     private var displayTitle: String {
         let title = tab.title
         let hasValidTitle = !title.isEmpty && title != "New Tab"
-        // Debug: print when this is evaluated
-        #if DEBUG
-        print("[CompactTabItem] displayTitle evaluated for tab \(tab.id.uuidString.prefix(8)): title='\(title)', displayURL='\(tab.displayURL)', hasValidTitle=\(hasValidTitle)")
-        #endif
         
         if settings.showWebsiteNameOnly {
             // Try to extract site name from page title first
@@ -96,24 +109,26 @@ struct CompactTabItem: View {
     }
 
     var body: some View {
-        #if DEBUG
-        let _ = { print("[CompactTabItem] body evaluated for tab \(tab.id.uuidString.prefix(8))") }()
-        #endif
-        
         ZStack(alignment: .trailing) {
             if isFocused {
                 // Address Bar Mode
                 addressBarContent
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .leading)),
+                        removal:   .opacity.combined(with: .scale(scale: 0.96, anchor: .leading))
+                    ))
                     .onAppear {
                         DispatchQueue.main.async {
-                            if isFocused {
-                                addressBarFocused = true
-                            }
+                            if isFocused { addressBarFocused = true }
                         }
                     }
             } else {
                 // Tab Display Mode
                 tabDisplayContent
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .leading)),
+                        removal:   .opacity
+                    ))
                     .contentShape(RoundedRectangle(cornerRadius: 10))
                     // First tap activates the tab, second tap focuses the URL bar
                     .onTapGesture {
@@ -125,10 +140,47 @@ struct CompactTabItem: View {
                             editingText = tab.displayURL
                         }
                     }
+                    // Drag gesture for reordering and extracting tabs
+                    .highPriorityGesture(
+                        DragGesture(minimumDistance: 2)
+                            .onChanged { value in
+                                if !isDragging {
+                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
+                                        isDragging = true
+                                    }
+                                    dragStartLocation = value.startLocation
+                                    dragOffset = 0
+                                    browserState.startDrag(tabId: tab.id)
+                                }
+                                // Update local position directly — no BrowserState publish
+                                dragOffset = value.translation.width
+                                onDragUpdate(value.translation.width)
+                            }
+                            .onEnded { value in
+                                let dropLocation = value.location
+                                let inTabBar = dropLocation.y <= barFrame.maxY + 20
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    isDragging = false
+                                    dragOffset = 0
+                                }
+                                onDragEnd()
+                                browserState.endDrag(inTabBar: inTabBar, tabBarFrame: barFrame, dropLocation: dropLocation)
+                            }
+                    )
             }
         }
-        .frame(minWidth: 60, maxWidth: .infinity)
+        // Focused tab expands for address bar; display-mode tabs cap so the trailing
+        // WindowDragHandle fills the remaining space.
+        .frame(minWidth: isFocused ? 180 : 60, maxWidth: isFocused ? 260 : 200)
         .frame(height: 28)
+        // Single spring drives both the frame resize and the view transitions above.
+        .animation(.spring(response: 0.3, dampingFraction: 0.78), value: isFocused)
+        // Visual feedback during drag
+        .scaleEffect(isBeingDragged ? 1.05 : 1.0)
+        .shadow(color: isBeingDragged ? .black.opacity(0.3) : .clear, radius: isBeingDragged ? 10 : 0)
+        .opacity(isBeingDragged ? 0.7 : 1.0)
+        // Dragged tab follows cursor; other tabs slide aside (iOS-style)
+        .offset(x: isBeingDragged ? dragOffset : displacement)
         // Explicitly observe tab property changes to force view re-evaluation
         .onReceive(tab.objectWillChange) { _ in
             // Increment to trigger view update
@@ -136,16 +188,22 @@ struct CompactTabItem: View {
         }
         .background(
             Group {
-                if isActive {
+                if isActive && !isBeingDragged {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.7))
+                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.85))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                         )
-                } else if isHovered && !isFocused {
+                } else if !isBeingDragged {
+                    // Inactive tabs: subtle fill + border so they're always legible,
+                    // slightly stronger on hover.
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.primary.opacity(0.05))
+                        .fill(Color.primary.opacity(isHovered ? 0.07 : 0.04))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(Color.primary.opacity(isHovered ? 0.16 : 0.10), lineWidth: 0.75)
+                        )
                 }
             }
         )
@@ -224,7 +282,7 @@ struct CompactTabItem: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
-        .frame(minWidth: 200, idealWidth: 300, maxWidth: .infinity)
+        .frame(minWidth: 180, idealWidth: 220, maxWidth: 260)
         .background(
             GeometryReader { geo in
                 Color.clear

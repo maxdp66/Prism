@@ -19,6 +19,15 @@ final class BrowserState: ObservableObject {
     @Published var settingsChangedNeedsReload: Bool = false
     /// Counter that increments when any tab's properties change, used to trigger view updates
     @Published var tabUpdateCounter: Int = 0
+    
+    // MARK: - Drag State
+    
+    /// The ID of the tab currently being dragged, if any
+    @Published var draggingTabId: UUID? = nil
+    /// The index where the dragged tab would be inserted if dropped now
+    @Published var dragInsertionIndex: Int? = nil
+    /// The original index of the dragging tab (before any reordering)
+    @Published var dragOriginalIndex: Int? = nil
 
     private let sidebarVisibleKey = "com.prism.sidebarVisible"
 
@@ -87,7 +96,7 @@ final class BrowserState: ObservableObject {
                     config.userContentController.add(ruleList)
                     isContentBlockerReady = true
                 } catch {
-                    print("[Prism] ContentBlocker failed: \(error)")
+                    Log.contentBlockerError("Failed to load content blocker", error: error)
                     contentBlockerError = "Content blocker failed to load."
                     isContentBlockerReady = true
                 }
@@ -127,7 +136,7 @@ final class BrowserState: ObservableObject {
                     let ruleList = try await ContentBlocker.shared.loadRuleList()
                     config.userContentController.add(ruleList)
                 } catch {
-                    print("[Prism] ContentBlocker reload failed: \(error)")
+                    Log.contentBlockerError("Failed to reload content blocker", error: error)
                 }
                 sharedConfiguration = config
                 if !tabs.isEmpty { settingsChangedNeedsReload = true }
@@ -174,10 +183,10 @@ final class BrowserState: ObservableObject {
     }
     
     private func subscribeToTabChanges(_ tab: BrowserTab) {
-        print("[BrowserState] Subscribing to tab \(tab.id.uuidString.prefix(8)) changes")
+        Log.stateDebug("Subscribing to tab \(tab.id.uuidString.prefix(8)) changes")
         tab.objectWillChange
             .sink { [weak self] _ in
-                print("[BrowserState] Tab \(tab.id.uuidString.prefix(8)) changed, incrementing counter")
+                Log.stateDebug("Tab \(tab.id.uuidString.prefix(8)) changed, incrementing counter")
                 self?.tabUpdateCounter += 1
             }
             .store(in: &cancellables)
@@ -243,6 +252,78 @@ final class BrowserState: ObservableObject {
     func toggleSidebar() {
         sidebarVisible.toggle()
         UserDefaults.standard.set(sidebarVisible, forKey: sidebarVisibleKey)
+    }
+
+    // MARK: - Drag and Drop
+
+    /// Start dragging a tab
+    func startDrag(tabId: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabId }) else { return }
+        draggingTabId = tabId
+        dragOriginalIndex = index
+        dragInsertionIndex = index
+    }
+
+    /// End dragging and optionally reorder tabs or extract to new window
+    func endDrag(inTabBar: Bool, tabBarFrame: CGRect, dropLocation: CGPoint) {
+        guard let draggingId = draggingTabId,
+              let currentIndex = tabs.firstIndex(where: { $0.id == draggingId }) else {
+            resetDragState()
+            return
+        }
+        
+        if inTabBar {
+            // Reorder tabs within the tab bar
+            let newIndex = dragInsertionIndex ?? currentIndex
+            if newIndex != currentIndex && newIndex >= 0 && newIndex <= tabs.count {
+                let tab = tabs.remove(at: currentIndex)
+                let adjustedIndex = currentIndex < newIndex ? newIndex - 1 : newIndex
+                tabs.insert(tab, at: adjustedIndex)
+            }
+        } else {
+            // Check if dropped below the tab bar (in the content area)
+            // If the drop is significantly below the tab bar, extract to new window
+            let dropBelowThreshold: CGFloat = tabBarFrame.maxY + 20
+            if dropLocation.y > dropBelowThreshold && tabs.count > 1 {
+                extractTabToNewWindow(tabId: draggingId)
+            }
+        }
+        
+        resetDragState()
+    }
+
+    /// Reset all drag state
+    func resetDragState() {
+        draggingTabId = nil
+        dragInsertionIndex = nil
+        dragOriginalIndex = nil
+    }
+
+    /// Extract a tab to a new window
+    func extractTabToNewWindow(tabId: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabId }),
+              tabs.count > 1 else {
+            resetDragState()
+            return
+        }
+        
+        // Remove the tab from this window
+        let extractedTab = tabs.remove(at: index)
+        
+        // If this was the active tab, activate another
+        if extractedTab.id == activeTabId {
+            let newIndex = min(index, tabs.count - 1)
+            activateTab(tabs[newIndex])
+        }
+        
+        // Post notification to create a new window with this tab
+        NotificationCenter.default.post(
+            name: .openNewWindowWithTab,
+            object: nil,
+            userInfo: ["tab": extractedTab]
+        )
+        
+        resetDragState()
     }
 
     deinit {

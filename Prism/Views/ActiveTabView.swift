@@ -23,8 +23,8 @@ struct ActiveTabView: View {
                 .environmentObject(settings)
                 .id(tab.id)
         } else {
-            // Show web content
-            WebContentView(webView: tab.webView)
+            // Show web content with dynamic header height based on layout style
+            WebContentView(webView: tab.webView, headerHeight: settings.layoutStyle.headerHeight)
                 .id(tab.id)
         }
     }

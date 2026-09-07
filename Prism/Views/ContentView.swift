@@ -196,8 +196,6 @@ private var webContentSection: some View {
 
 // MARK: - VisualEffectView
 
-// MARK: - VisualEffectView
-
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode

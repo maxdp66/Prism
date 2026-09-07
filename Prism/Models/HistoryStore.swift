@@ -37,17 +37,17 @@ final class HistoryStore: ObservableObject {
 
         // Update visitedAt if URL already exists
         if let idx = entries.firstIndex(where: { $0.url == url }) {
-            entries[idx].visitedAt = Date()
-            entries[idx] = HistoryEntry(title: title.isEmpty ? url : title, url: url)
-            entries[idx].visitedAt = Date()
-            // Move to front so most-recent appears first
-            let entry = entries.remove(at: idx)
-            entries.insert(entry, at: 0)
+            // Create a new entry with updated visitedAt and move to front
+            let updatedEntry = HistoryEntry(title: title.isEmpty ? url : title, url: url)
+            entries.remove(at: idx)
+            entries.insert(updatedEntry, at: 0)
         } else {
+            // Add new entry at the front
             let entry = HistoryEntry(title: title.isEmpty ? url : title, url: url)
             entries.insert(entry, at: 0)
         }
 
+        // Enforce maximum entries limit
         if entries.count > maxEntries {
             entries = Array(entries.prefix(maxEntries))
         }

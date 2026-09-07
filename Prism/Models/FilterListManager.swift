@@ -67,24 +67,31 @@ final class FilterListManager: ObservableObject {
         var updatedLists = filterLists
 
         // Download all enabled filter lists in parallel
+        // IMPORTANT: We store the ORIGINAL index, not the filtered index
         await withTaskGroup(of: (Int, Int?, String?).self) { group in
-            for (index, filterList) in filterLists.enumerated() where filterList.isEnabled {
+            for filterList in filterLists {
+                // Find the original index for this filter list
+                guard let originalIndex = filterLists.firstIndex(where: { $0.id == filterList.id }) else {
+                    continue
+                }
+                guard filterList.isEnabled else { continue }
+                
                 group.addTask {
                     do {
                         let (ruleCount, _) = try await self.downloadAndParseFilterList(filterList)
-                        return (index, ruleCount, nil)
+                        return (originalIndex, ruleCount, nil)
                     } catch {
-                        return (index, nil, error.localizedDescription)
+                        return (originalIndex, nil, error.localizedDescription)
                     }
                 }
             }
-            for await (index, ruleCount, errMsg) in group {
+            for await (originalIndex, ruleCount, errMsg) in group {
                 if let ruleCount {
-                    updatedLists[index].lastUpdated = Date()
-                    updatedLists[index].ruleCount = ruleCount
-                    logger.info("Updated \(self.filterLists[index].name): \(ruleCount) rules")
+                    updatedLists[originalIndex].lastUpdated = Date()
+                    updatedLists[originalIndex].ruleCount = ruleCount
+                    logger.info("Updated \(self.filterLists[originalIndex].name): \(ruleCount) rules")
                 } else if let errMsg {
-                    logger.error("Failed to update \(self.filterLists[index].name): \(errMsg)")
+                    logger.error("Failed to update \(self.filterLists[originalIndex].name): \(errMsg)")
                     errorMessage = errMsg
                 }
             }

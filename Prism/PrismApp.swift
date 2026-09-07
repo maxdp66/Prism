@@ -1,4 +1,4 @@
-import SwiftUI
+@preconcurrency import SwiftUI
 import AppKit
 
 @main
@@ -19,17 +19,8 @@ struct PrismApp: App {
                 .environmentObject(settings)
                 .environmentObject(quickLinkStore)
                 .onAppear {
-                    NSApp.windows.forEach { window in
-                        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-                        window.titlebarAppearsTransparent = true
-                        window.titleVisibility = .hidden
-                        window.titlebarSeparatorStyle = .none
-                        window.isMovableByWindowBackground = true
-                        window.standardWindowButton(.closeButton)?.isHidden = false
-                        window.standardWindowButton(.miniaturizeButton)?.isHidden = false
-                        window.standardWindowButton(.zoomButton)?.isHidden = false
-                        window.toolbar = nil
-                        window.appearance = NSAppearance(named: .vibrantDark)
+                    if let window = NSApp.windows.first {
+                        AppDelegate.configureWindow(window)
                     }
                 }
         }
@@ -123,22 +114,81 @@ struct PrismApp: App {
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
+    
+    private nonisolated(unsafe) var newWindowNotificationToken: NSObjectProtocol?
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.windows.forEach { window in
-            configureWindow(window)
+            Self.configureWindow(window)
+        }
+        
+        // Listen for requests to create new windows with extracted tabs
+        newWindowNotificationToken = NotificationCenter.default.addObserver(
+            forName: .openNewWindowWithTab,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let tab = notification.userInfo?["tab"] as? BrowserTab else { return }
+            Task { @MainActor in
+                self.createWindow(with: tab)
+            }
         }
     }
 
     func application(_ application: NSApplication, didCreateWindow window: NSWindow) {
-        configureWindow(window)
+        Self.configureWindow(window)
     }
+    
+    deinit {
+        if let token = newWindowNotificationToken {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+    
+    /// Create a new window with an extracted tab
+    private func createWindow(with tab: BrowserTab) {
+        // Create a new BrowserState for this window with just the extracted tab
+        let newBrowserState = BrowserState()
+        newBrowserState.tabs = [tab]
+        newBrowserState.activeTabId = tab.id
+        
+        // Create the content view
+        let contentView = ContentView()
+            .environmentObject(newBrowserState)
+            .environmentObject(BookmarkStore.shared)
+            .environmentObject(BrowserSettings.shared)
+            .environmentObject(QuickLinkStore.shared)
+        
+        // Create a new window
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 900, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        
+        // Set up the window
+        newWindow.contentView = NSHostingView(rootView: contentView)
+        newWindow.title = tab.title
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        // Configure the window appearance
+        Self.configureWindow(newWindow)
+    }
+}
 
-    private func configureWindow(_ window: NSWindow) {
+// MARK: - Window Configuration Helper
+
+extension AppDelegate {
+    static func configureWindow(_ window: NSWindow) {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.titlebarSeparatorStyle = .none
-        window.isMovableByWindowBackground = true
+        // Disable all system-initiated window movement; dragging is handled
+        // manually via setFrameOrigin() in the leading spacer gesture.
+        window.isMovable = false
+        window.backgroundColor = NSColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         window.standardWindowButton(.closeButton)?.isHidden = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
         window.standardWindowButton(.zoomButton)?.isHidden = false

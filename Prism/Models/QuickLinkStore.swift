@@ -42,7 +42,9 @@ final class QuickLinkStore: ObservableObject {
     ///   - url: The URL to navigate to.
     func add(title: String, url: String) {
         guard !url.isEmpty else { return }
-        let link = QuickLink(title: title.isEmpty ? url : title, url: url)
+        // Normalize the URL (ensure it has a scheme)
+        let normalizedURL = URLValidator.normalizeURL(url)
+        let link = QuickLink(title: title.isEmpty ? normalizedURL : title, url: normalizedURL)
         quickLinks.append(link)
         save()
     }
@@ -77,8 +79,10 @@ final class QuickLinkStore: ObservableObject {
     ///   - url: The new URL.
     func update(_ link: QuickLink, title: String, url: String) {
         guard let index = quickLinks.firstIndex(where: { $0.id == link.id }) else { return }
-        quickLinks[index].title = title.isEmpty ? url : title
-        quickLinks[index].url = url
+        // Normalize the URL (ensure it has a scheme)
+        let normalizedURL = URLValidator.normalizeURL(url)
+        quickLinks[index].title = title.isEmpty ? normalizedURL : title
+        quickLinks[index].url = normalizedURL
         save()
     }
     

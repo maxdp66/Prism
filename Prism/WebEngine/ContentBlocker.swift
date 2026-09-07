@@ -18,11 +18,11 @@ final class ContentBlocker {
         if let url = Bundle.main.url(forResource: defaultRulesFileName, withExtension: nil),
            let data = try? Data(contentsOf: url),
            let jsonString = String(data: data, encoding: .utf8) {
-            print("[Prism] Loaded content blocking rules from bundle: \(defaultRulesFileName)")
+            Log.contentBlocker("Loaded content blocking rules from bundle: \(defaultRulesFileName)")
             return jsonString
         }
         
-        print("[Prism] Using fallback content blocking rules (bundle file not found)")
+        Log.contentBlocker("Using fallback content blocking rules (bundle file not found)")
         return fallbackRulesJSON
     }
 
@@ -187,9 +187,9 @@ final class ContentBlocker {
     func reload() async {
         do {
             _ = try await loadRuleList()
-            print("[Prism] ContentBlocker reloaded successfully")
+            Log.contentBlocker("Content blocker reloaded successfully")
         } catch {
-            print("[Prism] ContentBlocker reload failed: \(error)")
+            Log.contentBlockerError("Content blocker reload failed", error: error)
         }
     }
 

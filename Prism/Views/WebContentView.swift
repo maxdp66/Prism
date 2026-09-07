@@ -5,6 +5,10 @@ import AppKit
 struct WebContentView: NSViewRepresentable {
 
     let webView: WKWebView
+    
+    /// The header height to use for content insets.
+    /// This should match the header height from the current layout style.
+    var headerHeight: CGFloat = 82
 
     func makeNSView(context: Context) -> WKWebView {
         webView.allowsBackForwardNavigationGestures = true
@@ -26,8 +30,6 @@ struct WebContentView: NSViewRepresentable {
     }
     
     private func applyInsets(to webView: WKWebView) {
-        let headerHeight: CGFloat = 82
-
         if let scrollView = webView.enclosingScrollView {
             let contentInset = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
             scrollView.contentInsets = contentInset
@@ -38,8 +40,6 @@ struct WebContentView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        let headerHeight: CGFloat = 82
-        
         if let scrollView = nsView.enclosingScrollView {
             let contentInset = NSEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
             if scrollView.contentInsets.top != headerHeight {

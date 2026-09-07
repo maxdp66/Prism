@@ -164,147 +164,114 @@ struct QuickLinkTile: View {
     @State private var isHovered = false
     @State private var faviconImage: NSImage?
     @State private var isLoading = false
-    @State private var showContextMenu = false
-    @State private var isEditing = false
-    @State private var longPressTimer: Timer? = nil
-    @State private var isLongPressing = false
+    @State private var isPressed = false
+    @State private var longPressTask: Task<Void, Never>? = nil
 
     private var domain: String {
         URL(string: url)?.host ?? url
     }
 
+    private let longPressDuration: UInt64 = 500_000_000 // 0.5 seconds in nanoseconds
+
     var body: some View {
-        ZStack {
-            // Button for normal click - handles navigation
-            Button(action: action) {
-                VStack(spacing: 8) {
-                    ZStack {
-                        Group {
-                            if isLoading {
-                                ProgressView()
-                                    .scaleEffect(0.5)
-                                    .progressViewStyle(.circular)
-                                    .tint(.white.opacity(0.5))
-                            } else if let image = faviconImage {
-                                Image(nsImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                            } else {
-                                Image(systemName: "globe")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .font(.system(size: 22))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.white.opacity(isHovered ? 0.22 : 0.14))
-                        )
-
-                        // Edit indicator on hover (not shown during long press)
-                        if isHovered && !isLongPressing {
-                            Image(systemName: "pencil.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.7))
-                                .position(x: 38, y: 38)
-                                .shadow(radius: 2)
-                        }
-                        
-                        // Selection indicator on long press - larger pencil icon
-                        if isLongPressing {
-                            Image(systemName: "pencil.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(.accentColor)
-                                .shadow(radius: 4)
-                        }
+        VStack(spacing: 8) {
+            ZStack {
+                Group {
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .progressViewStyle(.circular)
+                            .tint(.white.opacity(0.5))
+                    } else if let image = faviconImage {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } else {
+                        Image(systemName: "globe")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
                     }
-
-                    Text(title)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
-                        .lineLimit(1)
                 }
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
+                .font(.system(size: 22))
+                .foregroundColor(.white)
+                .frame(width: 44, height: 44)
                 .background(
-                    Group {
-                        if isLongPressing {
-                            // Selected state during long press
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.ultraThinMaterial.opacity(0.6))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 2)
-                                )
-                                .shadow(color: .accentColor.opacity(0.4), radius: 12)
-                        } else {
-                            // Normal or hover state
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.ultraThinMaterial.opacity(isHovered ? 0.5 : 0.25))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .strokeBorder(Color.white.opacity(isHovered ? 0.3 : 0.1), lineWidth: 1)
-                                )
-                        }
-                    }
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(isHovered ? 0.22 : 0.14))
                 )
-                .scaleEffect(isLongPressing ? 0.95 : (isHovered ? 1.03 : 1.0))
-                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isHovered)
-                .animation(.spring(response: 0.15, dampingFraction: 0.6), value: isLongPressing)
-            }
-            .buttonStyle(.plain)
-            .onHover { hovering in
-                // Only update hover state if not in the process of opening edit sheet
-                if !isEditing {
-                    isHovered = hovering
+
+                // Edit indicator on hover
+                if isHovered {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.white.opacity(0.7))
+                        .position(x: 38, y: 38)
+                        .shadow(radius: 2)
                 }
             }
-            .onAppear {
-                loadFavicon()
-            }
-            .contextMenu {
-                if let link = link {
-                    Button {
-                        onEdit(link)
-                    } label: {
-                        Label("Edit Name & URL", systemImage: "pencil")
-                    }
-                }
-            }
-            
-            // Invisible overlay for long press detection (doesn't block button clicks)
-            Color.clear
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            // Start long press timer on mouse down if not already running
-                            if longPressTimer == nil && !isEditing {
-                                isLongPressing = true
-                                longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { _ in
-                                    if let link = link {
-                                        // Haptic feedback - trackpad click to indicate edit mode
-                                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
-                                        // Immediately deselect tile visually and prevent hover state from reactivating
-                                        isEditing = true
-                                        isLongPressing = false
-                                        isHovered = false
-                                        longPressTimer = nil
-                                        onEdit(link)
-                                    }
-                                }
+
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
+                .lineLimit(1)
+        }
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial.opacity(isHovered ? 0.5 : 0.25))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.white.opacity(isHovered ? 0.3 : 0.1), lineWidth: 1)
+                    )
+            )
+        .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.03 : 1.0))
+        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isHovered)
+        .animation(.spring(response: 0.15, dampingFraction: 0.6), value: isPressed)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .onAppear {
+            loadFavicon()
+        }
+        // Combined gesture handling using high priority drag gesture
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    // Cancel any existing long press task
+                    longPressTask?.cancel()
+                    isPressed = true
+                    
+                    // Start long press detection task
+                    longPressTask = Task {
+                        try? await Task.sleep(nanoseconds: longPressDuration)
+                        guard !Task.isCancelled else { return }
+                        
+                        // Long press detected - haptic feedback and show edit menu
+                        await MainActor.run {
+                            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                            isPressed = false
+                            longPressTask = nil
+                            if let link = link {
+                                onEdit(link)
                             }
                         }
-                        .onEnded { _ in
-                            // Cancel timer if released before long press duration
-                            longPressTimer?.invalidate()
-                            longPressTimer = nil
-                            isLongPressing = false
-                        }
-                )
-        }
+                    }
+                }
+                .onEnded { _ in
+                    // Cancel long press task if still pending
+                    longPressTask?.cancel()
+                    
+                    // If still pressed, the task was cancelled (short press) - trigger click
+                    if isPressed {
+                        isPressed = false
+                        longPressTask = nil
+                        action()
+                    }
+                    // If not pressed, the long press task already completed and handled the edit
+                }
+        )
     }
 
     private func loadFavicon() {

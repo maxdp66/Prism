@@ -64,16 +64,24 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
 
         self.webView.navigationDelegate = self
         self.webView.uiDelegate = self
+        // Prevents white flash before page content renders
+        webView.underPageBackgroundColor = NSColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         setupObservers()
     }
 
     // MARK: - Deinit
 
     deinit {
-        Task { @MainActor [weak self] in
-            self?.webView.stopLoading()
+        // KVO removal (via cancellable cancel) must happen on the main thread.
+        // Swift does not guarantee @MainActor class deinit runs on the main actor,
+        // so we capture and defer cleanup explicitly.
+        let wv = webView
+        let subs = cancellables
+        cancellables = []
+        DispatchQueue.main.async {
+            wv.stopLoading()
+            subs.forEach { $0.cancel() }
         }
-        cancellables.removeAll()
     }
 
     // MARK: - Observers
@@ -329,7 +337,7 @@ extension BrowserTab: WKNavigationDelegate {
             return
         }
 
-        let faviconURL = URL(string: "https://\(host)/favicon.ico")!
+        guard let faviconURL = URL(string: "https://\(host)/favicon.ico") else { return }
 
         FaviconLoader.shared.load(url: faviconURL, cacheKey: cacheKeyString) { [weak self] image in
             self?.favicon = image
@@ -337,9 +345,14 @@ extension BrowserTab: WKNavigationDelegate {
     }
 }
 
-// MARK: - Color Extension
+// MARK: - Color Extensions
 
 extension Color {
+    // MARK: Hex Color Initializer
+    
+    /// Initialize a Color from a hex string.
+    /// Supports 3-digit (RGB), 6-digit (RGB), and 8-digit (ARGB) hex formats.
+    /// - Parameter hex: The hex color string (with or without # prefix).
     init?(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
@@ -363,13 +376,16 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
-}
-
-// MARK: - Color extension
-
-extension Color {
+    
+    // MARK: Prism Brand Colors
+    
+    /// Prism's primary purple brand color.
     static let prismPurple = Color(red: 139/255, green: 92/255, blue: 246/255)
+    
+    /// Prism's secondary blue brand color.
     static let prismBlue   = Color(red: 59/255,  green: 130/255, blue: 246/255)
+    
+    /// Prism's tertiary teal brand color.
     static let prismTeal   = Color(red: 20/255,  green: 184/255, blue: 166/255)
 }
 
@@ -481,4 +497,5 @@ extension BrowserTab: WKUIDelegate {
 
 extension Notification.Name {
     static let openNewTab = Notification.Name("com.prism.browser.openNewTab")
+    static let openNewWindowWithTab = Notification.Name("com.prism.browser.openNewWindowWithTab")
 }

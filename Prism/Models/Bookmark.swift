@@ -48,7 +48,9 @@ final class BookmarkStore: ObservableObject {
 
     func add(title: String, url: String) {
         guard !url.isEmpty else { return }
-        let bm = Bookmark(title: title.isEmpty ? url : title, url: url)
+        // Normalize the URL (ensure it has a scheme)
+        let normalizedURL = URLValidator.normalizeURL(url)
+        let bm = Bookmark(title: title.isEmpty ? normalizedURL : title, url: normalizedURL)
         bookmarks.append(bm)
         save()
     }

@@ -326,8 +326,6 @@ struct AddressBarView: View {
 
 // MARK: - SuggestionsOverlay
 
-// MARK: - SuggestionsOverlay
-
 struct SuggestionsOverlay: View {
     let suggestions: [Suggestion]
     @Binding var suggestionsHeight: CGFloat

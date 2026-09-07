@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		B1000001000000000000001A /* PrismApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000001A /* PrismApp.swift */; };
+		B100000100000000000000E1 /* URLValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000E1 /* URLValidator.swift */; };
+		B100000100000000000000E2 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000200000000000000E2 /* Logger.swift */; };
 		B1000001000000000000002A /* BrowserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002A /* BrowserState.swift */; };
 		B1000001000000000000002B /* BrowserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000002B /* BrowserSettings.swift */; };
 		B1000001000000000000003A /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000002000000000000003A /* BrowserTab.swift */; };
@@ -68,6 +70,8 @@
 		B100000200000000000000D2 /* QuickLinkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLinkStore.swift; sourceTree = "<group>"; };
 		B100000200000000000000D3 /* FaviconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconCache.swift; sourceTree = "<group>"; };
 		B100000200000000000000D4 /* QuickLinkEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLinkEditView.swift; sourceTree = "<group>"; };
+		B100000200000000000000E1 /* URLValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLValidator.swift; sourceTree = "<group>"; };
+		B100000200000000000000E2 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,12 +101,22 @@
 				B10000040000000000000003 /* Models */,
 				B10000040000000000000004 /* Views */,
 				B10000040000000000000005 /* WebEngine */,
+				B10000040000000000000006 /* Utilities */,
 				B10000040000000000000011 /* Resources */,
 				B100000200000000000000CA /* Assets.xcassets */,
 				B100000200000000000000DA /* Info.plist */,
 				B100000200000000000000EA /* Prism.entitlements */,
 			);
 			path = Prism;
+			sourceTree = "<group>";
+		};
+		B10000040000000000000006 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				B100000200000000000000E1 /* URLValidator.swift */,
+				B100000200000000000000E2 /* Logger.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 		B10000040000000000000003 /* Models */ = {
@@ -259,6 +273,8 @@
 			B100000100000000000000D2 /* QuickLinkStore.swift in Sources */,
 			B100000100000000000000D3 /* FaviconCache.swift in Sources */,
 			B100000100000000000000D4 /* QuickLinkEditView.swift in Sources */,
+			B100000100000000000000E1 /* URLValidator.swift in Sources */,
+			B100000100000000000000E2 /* Logger.swift in Sources */,
 		);
 		runOnlyForDeploymentPostprocessing = 0;
 		};
